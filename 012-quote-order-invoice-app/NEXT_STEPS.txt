@@ -1,0 +1,30 @@
+NEXT_STEPS — 再開時の具体作業（2026-09-28 時点）
+
+■ 再開手順
+1. cd 012-quote-order-invoice-app && npm ci
+2. npm run db:local            （ローカルPostgreSQL 16 を port 54329 で起動、dev/test DB作成）
+3. npm run typecheck && npm test && npm run test:e2e   （全件成功が前提）
+4. PROGRESS.md / TEST_REPORT.md を確認
+
+■ 販売前に人間が行うこと（コードでは完了できない）
+1. iPhone Safari・ホーム画面PWA・Android Chrome の実機確認（RELEASE_CHECKLIST.md B節の表を埋める）
+   - 特に：PDFの保存/共有、写真・カメラ添付、HEICの扱い、ホーム画面起動時のログイン保持、数値キーボード
+2. 生成PDFを Acrobat Reader / macOS プレビュー / iOS で開いて文字化け・欠字がないか確認
+3. ホスティング契約・独自ドメイン・環境変数設定・デプロイ（OPERATIONS.md）→ 本番URLで E2E 相当の手動確認
+4. 販売ページ案の【要確認】（提供期間・サポート・価格条件）、特商法表記、プライバシーポリシー
+5. 購入者コードの発行と受け渡し方法の決定
+
+■ 必要になったら行う改善（今回は範囲外・未実装）
+- メールでのパスワード再設定（Resend 等の契約・DNS設定が必要。現状は復旧コード＋運営者発行リンク）
+- レート制限の共有ストア化（複数インスタンス構成にする場合）
+- 添付ファイルの外部オブジェクトストレージ化（R2/S3。データ量が増えた場合）
+- 2要素認証
+- 源泉徴収税の計算欄（税務の判断を伴うため初版では対象外）
+- 見積・請求のテンプレート（書式）選択
+※ 仕様の「今回広げない」機能（会計・決済・銀行API・自動メール等）は追加しないこと。
+
+■ 既知の注意
+- ヘッドレスChromium（検証環境）では Playwright の download.suggestedFilename() が常に "download" になる。
+  ファイル名は Content-Disposition ヘッダで検証している（アプリ側の不具合ではない）。
+- Noto Sans JP は pdf-lib のサブセット化でグリフが欠落するため使用しないこと（DECISIONS.md「PDF」）。
+  フォントを変更する場合は tests/pdf-glyph-check.ts による検査が通ることを確認。

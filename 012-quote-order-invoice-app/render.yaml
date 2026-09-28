@@ -1,0 +1,26 @@
+# Render Blueprint（参考）。料金が発生するプランを含みます。適用前に OPERATING_COSTS.md と公式料金を確認してください。
+services:
+  - type: web
+    name: freelance-desk
+    runtime: docker
+    plan: starter        # $7/月（2026-09-28確認）
+    region: singapore    # 日本から近いリージョン。必要に応じて変更
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: freelance-desk-db
+          property: connectionString
+      - key: APP_ORIGIN
+        sync: false        # 例 https://desk.example.com （公開URLを設定）
+      - key: SIGNUP_CODE_REQUIRED
+        value: "true"
+      - key: DEMO_ENABLED
+        value: "true"
+      - key: TRUST_PROXY
+        value: "true"
+databases:
+  - name: freelance-desk-db
+    plan: basic-256mb    # $6/月（2026-09-28確認）。Free は30日で失効するため本番不可
+    region: singapore
+    postgresMajorVersion: "16"

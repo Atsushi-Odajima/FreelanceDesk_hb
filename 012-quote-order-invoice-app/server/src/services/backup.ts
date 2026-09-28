@@ -2,10 +2,11 @@
 // 形式: manifest.json / data.json / attachments/<元ID>
 // 復元先は「空のアカウント」のみ。全IDを新しいUUIDへ付け替えるため、同じ環境・別環境のどちらにも復元できる。
 import crypto from 'node:crypto';
-import { unzipSync, zipSync, strToU8, strFromU8 } from 'fflate';
+import { Unzip, UnzipInflate, zipSync, strToU8, strFromU8 } from 'fflate';
 import type pg from 'pg';
 import { many, one, withTx } from '../db';
 import { unprocessable } from './errors';
+import { detectFile, UploadRejected } from './upload';
 
 export const BACKUP_FORMAT_VERSION = 1;
 
@@ -126,12 +127,73 @@ export async function isAccountEmpty(q: pg.Pool | pg.PoolClient, accountId: stri
   return Number(r.n) === 0;
 }
 
-export async function restoreBackup(pool: pg.Pool, accountId: string, zip: Uint8Array) {
+export interface RestoreLimits {
+  /** 展開後の合計サイズ上限（zip爆弾対策） */
+  maxTotalBytes: number;
+  /** 添付ファイル合計の上限（アカウントの保存容量） */
+  storageQuotaBytes: number;
+}
+
+const ALLOWED_ENTRY = /^(manifest\.json|data\.json|attachments\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+
+/** 展開しながらサイズを数え、上限を超えたら中断する（ヘッダの申告サイズは信用しない） */
+export function safeUnzip(zip: Uint8Array, maxTotalBytes: number): Record<string, Uint8Array> {
+  const out: Record<string, Uint8Array> = {};
+  let total = 0;
+  let files = 0;
+  let error: Error | null = null;
+  const uz = new Unzip((file) => {
+    if (error || !ALLOWED_ENTRY.test(file.name)) return; // 想定外のファイルは展開しない
+    if (++files > 50_000) {
+      error = new Error('ファイル数が多すぎます');
+      return;
+    }
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    file.ondata = (err, data, final) => {
+      if (error) return;
+      if (err) {
+        error = err;
+        return;
+      }
+      size += data.length;
+      total += data.length;
+      if (total > maxTotalBytes) {
+        error = new Error('展開後のサイズが大きすぎます');
+        file.terminate();
+        return;
+      }
+      chunks.push(data);
+      if (final) {
+        const buf = new Uint8Array(size);
+        let o = 0;
+        for (const c of chunks) {
+          buf.set(c, o);
+          o += c.length;
+        }
+        out[file.name] = buf;
+      }
+    };
+    file.start();
+  });
+  uz.register(UnzipInflate);
+  try {
+    uz.push(zip, true);
+  } catch (e) {
+    error ??= e as Error;
+  }
+  if (error) throw error;
+  return out;
+}
+
+export async function restoreBackup(pool: pg.Pool, accountId: string, zip: Uint8Array, limits: RestoreLimits) {
+  // 展開より先に「空のアカウント」か確認（重い処理を無駄に行わない）
+  if (!(await isAccountEmpty(pool, accountId))) throw unprocessable('復元は、データが空のアカウントにのみ行えます（新しいアカウントを作成して復元してください）');
   let entries: Record<string, Uint8Array>;
   try {
-    entries = unzipSync(zip);
-  } catch {
-    throw unprocessable('バックアップファイル（ZIP）を読み込めません');
+    entries = safeUnzip(zip, limits.maxTotalBytes);
+  } catch (e) {
+    throw unprocessable(`バックアップファイル（ZIP）を読み込めません${(e as Error)?.message?.includes('大きすぎ') ? '（サイズが上限を超えています）' : ''}`);
   }
   if (!entries['manifest.json'] || !entries['data.json']) throw unprocessable('Freelance Desk のバックアップファイルではありません');
   let manifest: any;
@@ -154,18 +216,44 @@ export async function restoreBackup(pool: pg.Pool, accountId: string, zip: Uint8
     }
   }
 
+  const newIds = new Set(map.values());
   return withTx(pool, async (tx) => {
     await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`restore:${accountId}`]);
     if (!(await isAccountEmpty(tx, accountId))) throw unprocessable('復元は、データが空のアカウントにのみ行えます（新しいアカウントを作成して復元してください）');
     const deferredInvoiceVersion: Array<[string, string]> = [];
+    let attachmentBytes = 0;
     for (const t of BACKUP_TABLES) {
       const cols = await tableColumns(tx, t);
-      for (const raw of tables[t] ?? []) {
+      const rows = [...(tables[t] ?? [])];
+      // 版の自己参照（based_on_version_id）のため、古い版から順に入れる
+      if (t === 'quote_versions') rows.sort((a, b) => Number(a.version) - Number(b.version));
+      for (const raw of rows) {
         const row = remapDeep(raw, map) as Row;
         row.account_id = accountId;
         if (t === 'invoices' && row.current_version_id) {
           deferredInvoiceVersion.push([row.id, row.current_version_id]);
           row.current_version_id = null;
+        }
+        // バックアップ内に存在しないIDへの参照は受け付けない（他アカウントのIDの持ち込み防止）
+        for (const [k, v] of Object.entries(row)) {
+          if (cols.get(k) !== 'uuid' || k === 'account_id' || v === null || v === undefined) continue;
+          if (typeof v !== 'string' || !newIds.has(v)) {
+            if (t === 'project_events' && k === 'ref_id') row[k] = null; // 削除済み書類への参照は外す
+            else throw unprocessable(`バックアップ内の参照が不正です（${t}.${k}）`);
+          }
+        }
+        if (t === 'attachments') {
+          const data = entries[`attachments/${raw.id}`];
+          if (!data) throw unprocessable(`添付ファイルの実体が見つかりません（${raw.filename}）`);
+          try {
+            row.mime = detectFile(String(row.filename ?? 'file'), data).mime;
+          } catch (e) {
+            if (e instanceof UploadRejected) throw unprocessable(`添付ファイル「${row.filename}」は復元できない形式です`);
+            throw e;
+          }
+          row.size_bytes = data.length;
+          attachmentBytes += data.length;
+          if (attachmentBytes > limits.storageQuotaBytes) throw unprocessable('添付ファイルの合計が保存容量の上限を超えています');
         }
         const keys = Object.keys(row).filter((k) => cols.has(k));
         const values = keys.map((k) => {
@@ -191,6 +279,7 @@ export async function restoreBackup(pool: pg.Pool, accountId: string, zip: Uint8
     }
     // 事業者情報
     const b = remapDeep(payload.business ?? {}, map) as Row;
+    if (b.logo_attachment_id && !newIds.has(b.logo_attachment_id)) b.logo_attachment_id = null;
     const bcols = await tableColumns(tx, 'business_profiles');
     const bkeys = Object.keys(b).filter((k) => bcols.has(k) && k !== 'account_id' && k !== 'updated_at');
     if (bkeys.length) {

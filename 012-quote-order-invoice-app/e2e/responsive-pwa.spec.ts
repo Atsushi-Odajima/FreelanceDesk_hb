@@ -84,6 +84,15 @@ test('PWA：manifest・アイコン・Service Worker 登録、オフライン時
   await ctx.setOffline(false);
   await page.reload();
   await expect(page.getByLabel('案件名')).toHaveValue('オフライン下書き');
+  // 顧客を用意して登録（下書きのrequestIdで1件だけ作成される）
+  await apiPost(page.request, '/api/customers', { code: '', name: 'オフライン顧客', contactName: '', honorific: '御中', postalCode: '', address: '', phone: '', email: '', paymentTerms: '', payerName: '', internalMemo: '' });
+  await page.reload();
+  await page.getByLabel('顧客', { exact: true }).selectOption({ label: 'オフライン顧客' });
+  await page.getByRole('button', { name: '登録する' }).click();
+  await expect(page.getByRole('heading', { name: 'オフライン下書き' })).toBeVisible();
+  await page.goto('/projects/new');
+  await expect(page.getByLabel('案件名')).toHaveValue(''); // 登録後は端末下書きが消える
+  expect((await apiGet(page.request, '/api/projects')).projects).toHaveLength(1);
   await ctx.close();
 });
 

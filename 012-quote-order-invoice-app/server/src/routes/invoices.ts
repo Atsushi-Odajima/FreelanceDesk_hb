@@ -51,7 +51,7 @@ export function invoiceRoutes(s: Services) {
   // 受注から「請求書を作る」（下書き作成→確認→確定）
   r.post('/projects/:id/invoices', async (c) => {
     const i = await body(c, createInvoiceSchema);
-    const res = await withTx(s.pool, (tx) => createInvoiceFromOrder(tx, s, c.get('accountId'), idParam(c), i.requestId, i.orderId));
+    const res = await withTx(s.pool, (tx) => createInvoiceFromOrder(tx, s, c.get('accountId'), idParam(c), i.requestId, i.orderId, i.allowAdditional));
     return c.json(res, res.created ? 201 : 200);
   });
 

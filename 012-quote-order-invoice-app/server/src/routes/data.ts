@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { type AppEnv, type Services } from '../context';
-import { many, one, withTx } from '../db';
+import { lockRequest, many, one, withTx } from '../db';
 import { toCsv, parseCsv } from '../../../shared/csv';
 import { PROJECT_STATUS_LABELS, PAYMENT_METHOD_LABELS, type ProjectStatus, type PaymentMethod } from '../../../shared/status';
 import { PAYMENT_STATE_LABELS } from '../../../shared/calc';
@@ -181,7 +181,13 @@ export function dataRoutes(s: Services) {
       results.push({ line, status: 'ok', name: parsedRow.data.name });
     });
     if (preview) return c.json({ preview: true, results, validCount: valid.length });
-    await withTx(s.pool, async (tx) => {
+    const requestId = typeof form.requestId === 'string' && /^[A-Za-z0-9_\-:.]{8,100}$/.test(form.requestId) ? form.requestId : null;
+    const done = await withTx(s.pool, async (tx) => {
+      if (requestId) {
+        await lockRequest(tx, acc, requestId);
+        const prev = await one(tx, 'SELECT result FROM csv_imports WHERE account_id=$1 AND request_id=$2', [acc, requestId]);
+        if (prev) return prev.result; // 再送：前回の結果を返す（二重取込しない）
+      }
       for (const d of valid) {
         if (kind === 'customers') {
           await tx.query(
@@ -201,8 +207,11 @@ export function dataRoutes(s: Services) {
           ]);
         }
       }
+      const result = { preview: false, results, imported: valid.length };
+      if (requestId) await tx.query('INSERT INTO csv_imports (account_id, request_id, kind, result) VALUES ($1,$2,$3,$4)', [acc, requestId, kind, JSON.stringify(result)]);
+      return result;
     });
-    return c.json({ preview: false, results, imported: valid.length });
+    return c.json(done);
   });
 
   // ---------- 全データバックアップ／復元 ----------
@@ -215,7 +224,7 @@ export function dataRoutes(s: Services) {
     });
   });
 
-  const restoreMax = Number(process.env.RESTORE_MAX_BYTES ?? 300 * 1024 * 1024);
+  const restoreMax = Number(process.env.RESTORE_MAX_BYTES ?? 200 * 1024 * 1024);
   r.post(
     '/restore',
     bodyLimit({ maxSize: restoreMax, onError: () => { throw new HttpError(413, 'バックアップファイルが大きすぎます'); } }),
@@ -223,7 +232,10 @@ export function dataRoutes(s: Services) {
       const form = (await c.req.parseBody()) as Record<string, string | File>;
       const file = form.file;
       if (!(file instanceof File)) throw new HttpError(400, 'バックアップファイルを選択してください');
-      const res = await restoreBackup(s.pool, c.get('accountId'), new Uint8Array(await file.arrayBuffer()));
+      const res = await restoreBackup(s.pool, c.get('accountId'), new Uint8Array(await file.arrayBuffer()), {
+        maxTotalBytes: s.config.accountStorageQuotaBytes + 100 * 1024 * 1024,
+        storageQuotaBytes: s.config.accountStorageQuotaBytes,
+      });
       return c.json(res);
     },
   );

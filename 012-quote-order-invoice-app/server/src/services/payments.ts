@@ -160,7 +160,7 @@ export async function importBankRows(
   input: { filename: string; encoding: string; mapping: unknown; rowCount: number; rows: BankRow[] },
 ) {
   const hash = bankContentHash(input.rows);
-  await lockRequest(tx, accountId, `bank:${hash}`);
+  await lockRequest(tx, accountId, 'bank-import'); // 期間が重なるCSVの同時取込も直列化
   const dup = await one(tx, 'SELECT id, created_at FROM bank_imports WHERE account_id=$1 AND file_sha256=$2', [accountId, hash]);
   if (dup) throw conflict('このCSVはすでに取り込まれています（同じ内容のファイル）', 'duplicate_import');
   if (input.rows.length === 0) throw unprocessable('取り込める入金行がありません');

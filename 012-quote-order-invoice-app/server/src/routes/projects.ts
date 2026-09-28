@@ -43,8 +43,8 @@ export function projectRoutes(s: Services) {
     const rows = await many(
       s.pool,
       `SELECT p.id, p.number, p.title, p.status, p.inquiry_date, p.planned_due, p.updated_at, p.created_at, p.customer_id, c.name AS customer_name,
-         (SELECT o.amount FROM orders o WHERE o.project_id=p.id AND o.status='active') AS order_amount,
-         (SELECT v.total FROM quote_versions v WHERE v.project_id=p.id AND v.status='final' ORDER BY v.version DESC LIMIT 1) AS quote_total
+         (SELECT o.amount FROM orders o WHERE o.account_id=p.account_id AND o.project_id=p.id AND o.status='active') AS order_amount,
+         (SELECT v.total FROM quote_versions v WHERE v.account_id=p.account_id AND v.project_id=p.id AND v.status='final' ORDER BY v.version DESC LIMIT 1) AS quote_total
        FROM projects p JOIN customers c ON c.account_id=p.account_id AND c.id=p.customer_id
        WHERE ${conds.join(' AND ')}
        ORDER BY CASE WHEN p.status IN ('completed','lost','cancelled') THEN 1 ELSE 0 END, p.planned_due NULLS LAST, p.updated_at DESC

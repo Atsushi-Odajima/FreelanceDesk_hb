@@ -53,7 +53,15 @@ export async function allocatedFor(q: Queryable, accountId: string, invoiceId: s
  * 受注内容から請求書（下書き）を作る。明細・調整・税設定・件名・支払条件を引き継ぐ。
  * requestId で冪等。同じ受注に未確定の下書きがあればそれを返す。
  */
-export async function createInvoiceFromOrder(tx: Tx, s: Services, accountId: string, projectId: string, requestId: string, orderId?: string | null) {
+export async function createInvoiceFromOrder(
+  tx: Tx,
+  s: Services,
+  accountId: string,
+  projectId: string,
+  requestId: string,
+  orderId?: string | null,
+  allowAdditional = false,
+) {
   await lockRequest(tx, accountId, requestId);
   const byReq = await one(tx, 'SELECT id FROM invoices WHERE account_id=$1 AND request_id=$2', [accountId, requestId]);
   if (byReq) {
@@ -73,6 +81,9 @@ export async function createInvoiceFromOrder(tx: Tx, s: Services, accountId: str
     [accountId, order.id],
   );
   if (draft) return { invoiceId: draft.invoice_id as string, versionId: draft.version_id as string, created: false };
+  // 同じ受注の発行済み請求書がある場合は、明示的な指示（分割・追加請求）がない限り作らない
+  const issued = await one(tx, "SELECT number FROM invoices WHERE account_id=$1 AND order_id=$2 AND status='issued' LIMIT 1", [accountId, order.id]);
+  if (issued && !allowAdditional) throw conflict(`この受注にはすでに請求書（${issued.number}）があります。追加で請求する場合は確認のうえ作成してください`, 'already_invoiced');
 
   const b = await loadBusiness(tx, accountId);
   const snap = order.snapshot as DocSnapshot & { orderPaymentTerms?: string };
@@ -261,10 +272,13 @@ export async function startCorrection(tx: Tx, accountId: string, invoiceId: stri
 }
 
 export async function discardInvoiceDraft(tx: Tx, accountId: string, versionId: string) {
+  // ロック順は 請求書→版（確定・取消と同じ順序にしてデッドロックを防ぐ）
+  const v0 = await requireInvoiceVersion(tx, accountId, versionId);
+  await requireInvoice(tx, accountId, v0.invoice_id, true);
   const v = await requireInvoiceVersion(tx, accountId, versionId, true);
   if (v.status !== 'draft') throw conflict('確定済みの請求書は削除できません。取消または訂正を使ってください', 'finalized');
   await tx.query('DELETE FROM invoice_versions WHERE account_id=$1 AND id=$2', [accountId, versionId]);
-  const inv = await requireInvoice(tx, accountId, v.invoice_id, true);
+  const inv = await requireInvoice(tx, accountId, v.invoice_id);
   if (inv.status === 'draft') {
     await tx.query('DELETE FROM invoices WHERE account_id=$1 AND id=$2', [accountId, inv.id]);
     await logEvent(tx, accountId, inv.project_id, 'invoice_discarded', '請求書の下書きを破棄');

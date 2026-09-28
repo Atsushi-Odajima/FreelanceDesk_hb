@@ -24,7 +24,7 @@ export function dashboardRoutes(s: Services) {
         s.pool,
         `SELECT p.id, p.number, p.title, p.status, c.name AS customer_name, v.total, v.submitted_on, v.version, q.number AS quote_number, v.valid_until
          FROM projects p JOIN customers c ON c.id=p.customer_id
-         JOIN LATERAL (SELECT * FROM quote_versions v WHERE v.project_id=p.id AND v.submitted_at IS NOT NULL ORDER BY v.version DESC LIMIT 1) v ON true
+         JOIN LATERAL (SELECT * FROM quote_versions v WHERE v.account_id=p.account_id AND v.project_id=p.id AND v.submitted_at IS NOT NULL ORDER BY v.version DESC LIMIT 1) v ON true
          JOIN quotes q ON q.id=v.quote_id
          WHERE p.account_id=$1 AND p.status IN ('quote_submitted','considering')
            AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.project_id=p.id AND o.status='active')
@@ -75,7 +75,7 @@ export function dashboardRoutes(s: Services) {
     const quoting = await one(
       s.pool,
       `SELECT COALESCE(sum(v.total),0)::bigint AS s, count(*)::int AS n FROM projects p
-       JOIN LATERAL (SELECT total FROM quote_versions v WHERE v.project_id=p.id AND v.status='final' ORDER BY v.version DESC LIMIT 1) v ON true
+       JOIN LATERAL (SELECT total FROM quote_versions v WHERE v.account_id=p.account_id AND v.project_id=p.id AND v.status='final' ORDER BY v.version DESC LIMIT 1) v ON true
        WHERE p.account_id=$1 AND p.status IN ('quoting','quote_submitted','considering')
          AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.project_id=p.id AND o.status='active')`,
       [acc],
@@ -136,13 +136,13 @@ export function dashboardRoutes(s: Services) {
       many(
         s.pool,
         `SELECT v.id, q.number, v.version, v.status, v.total, p.id AS project_id, p.title AS project_title FROM quote_versions v
-         JOIN quotes q ON q.id=v.quote_id JOIN projects p ON p.id=v.project_id
+         JOIN quotes q ON q.account_id=v.account_id AND q.id=v.quote_id JOIN projects p ON p.account_id=v.account_id AND p.id=v.project_id
          WHERE v.account_id=$1 AND q.number ILIKE $2 ORDER BY q.number, v.version LIMIT 30`,
         [acc, like],
       ),
       many(
         s.pool,
-        `SELECT i.id, i.number, i.status, i.total, p.id AS project_id, p.title AS project_title FROM invoices i JOIN projects p ON p.id=i.project_id
+        `SELECT i.id, i.number, i.status, i.total, p.id AS project_id, p.title AS project_title FROM invoices i JOIN projects p ON p.account_id=i.account_id AND p.id=i.project_id
          WHERE i.account_id=$1 AND i.number ILIKE $2 ORDER BY i.number LIMIT 30`,
         [acc, like],
       ),

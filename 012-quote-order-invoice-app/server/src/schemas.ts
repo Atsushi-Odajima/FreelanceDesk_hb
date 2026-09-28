@@ -176,7 +176,7 @@ export const deliverySchema = z.object({
   includeLines: z.boolean().default(true),
 });
 
-export const createInvoiceSchema = z.object({ requestId, orderId: uuid.optional().nullable() });
+export const createInvoiceSchema = z.object({ requestId, orderId: uuid.optional().nullable(), allowAdditional: z.boolean().optional().default(false) });
 export const invoiceDraftSchema = z.object({
   ...docBase,
   issueDate: dateStr,

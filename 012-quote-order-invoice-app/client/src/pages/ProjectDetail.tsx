@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { del, newRequestId, patch, post, put } from '../api';
+import { ApiError, del, newRequestId, patch, post, put } from '../api';
 import { useApi } from '../hooks';
 import { AsyncButton, DateText, Empty, ErrorBanner, Field, Loading, Modal, Money, PaymentBadge, StatusBadge, useToast } from '../components/ui';
 import PdfActions from '../components/PdfActions';
@@ -50,7 +50,15 @@ export default function ProjectDetail({ id, onChanged, embedded }: { id: string;
     nav(`/quotes/${r.versionId}`);
   };
   const createInvoice = async () => {
-    const r = await post(`/api/projects/${id}/invoices`, { requestId: newRequestId() });
+    const requestId = newRequestId();
+    let r;
+    try {
+      r = await post(`/api/projects/${id}/invoices`, { requestId });
+    } catch (e) {
+      if (!(e instanceof ApiError && e.code === 'already_invoiced')) throw e;
+      if (!window.confirm(`${e.message}\n\n分割請求・追加請求として、受注内容を引き継いだ請求書をもう1通作りますか？`)) return;
+      r = await post(`/api/projects/${id}/invoices`, { requestId, allowAdditional: true });
+    }
     nav(`/invoice-versions/${r.versionId}`);
   };
 
@@ -307,8 +315,8 @@ export default function ProjectDetail({ id, onChanged, embedded }: { id: string;
           <div className="card-title">
             <h2>請求書</h2>
             {d.activeOrder && !closed && (
-              <AsyncButton className="btn primary sm" onClick={createInvoice}>
-                請求書を作る
+              <AsyncButton className={`btn sm ${d.invoices.some((i: any) => i.status === 'issued') ? '' : 'primary'}`} onClick={createInvoice}>
+                {d.invoices.some((i: any) => i.status === 'issued') ? '追加の請求書を作る' : '請求書を作る'}
               </AsyncButton>
             )}
           </div>

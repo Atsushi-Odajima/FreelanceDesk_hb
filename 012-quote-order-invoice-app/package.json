@@ -16,15 +16,17 @@
     "build:server": "node scripts/build-server.mjs",
     "start": "node dist/server/index.js",
     "migrate": "tsx server/src/migrate-cli.ts",
-    "codes:create": "tsx server/src/tools/create-signup-codes.ts",
+    "codes:create": "node dist/server/tools/create-signup-codes.js",
     "seed:sample": "tsx server/src/tools/seed-sample.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
-    "test:e2e": "playwright test",
+    "test:e2e": "npm run build && playwright test",
     "db:local": "bash scripts/local-postgres.sh",
-    "account:reset-link": "tsx server/src/tools/reset-link.ts"
+    "account:reset-link": "node dist/server/tools/reset-link.js",
+    "codes:create:dev": "tsx server/src/tools/create-signup-codes.ts",
+    "icons": "node scripts/make-icons.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",

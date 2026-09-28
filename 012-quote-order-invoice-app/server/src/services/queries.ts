@@ -51,10 +51,9 @@ export async function listInvoices(q: Queryable, accountId: string, today: strin
      FROM invoices i
      JOIN projects p ON p.account_id=i.account_id AND p.id=i.project_id
      JOIN customers c ON c.account_id=p.account_id AND c.id=p.customer_id
-     LEFT JOIN invoice_versions cv ON cv.id=i.current_version_id
+     LEFT JOIN invoice_versions cv ON cv.account_id=i.account_id AND cv.id=i.current_version_id
      WHERE ${conds.join(' AND ')}
-     ORDER BY i.due_date NULLS LAST, i.created_at DESC
-     LIMIT 2000`,
+     ORDER BY i.due_date NULLS LAST, i.created_at DESC`,
     params,
   );
   return rows.map((r) => {
@@ -118,7 +117,7 @@ export async function listPayments(q: Queryable, accountId: string, f: { from?: 
                       FROM payment_allocations a JOIN invoices i ON i.id=a.invoice_id JOIN projects p ON p.id=i.project_id JOIN customers c ON c.id=p.customer_id
                       WHERE a.payment_id=pm.id), '[]') AS allocations
      FROM payments pm WHERE ${conds.join(' AND ')}
-     ORDER BY pm.received_on DESC, pm.created_at DESC LIMIT 2000`,
+     ORDER BY pm.received_on DESC, pm.created_at DESC`,
     params,
   );
   const out = rows.map((r) => ({

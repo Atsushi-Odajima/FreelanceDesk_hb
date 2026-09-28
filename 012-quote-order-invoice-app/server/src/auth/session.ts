@@ -37,7 +37,7 @@ export async function readSession(q: Queryable, s: Services, c: Context): Promis
   const row = await one<{ account_id: string; last_seen_at: Date; is_demo: boolean }>(
     q,
     `SELECT s.account_id, s.last_seen_at, a.is_demo FROM sessions s JOIN accounts a ON a.id = s.account_id
-     WHERE s.token_hash = $1 AND s.expires_at > $2`,
+     WHERE s.token_hash = $1 AND s.expires_at > $2 AND (NOT a.is_demo OR a.demo_expires_at > $2)`,
     [hash, s.now()],
   );
   if (!row) return null;

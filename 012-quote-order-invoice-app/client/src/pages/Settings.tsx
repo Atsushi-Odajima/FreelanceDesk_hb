@@ -209,6 +209,7 @@ function DataTab() {
   const [importKind, setImportKind] = useState<'customers' | 'items'>('customers');
   const [importEnc, setImportEnc] = useState<'utf-8' | 'shift_jis'>('utf-8');
   const [importFile, setImportFile] = useState<File | null>(null);
+  const [importReq, setImportReq] = useState(newRequestId());
   const [preview, setPreview] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
@@ -221,10 +222,14 @@ function DataTab() {
     fd.append('file', importFile);
     fd.append('encoding', importEnc);
     if (dry) fd.append('preview', '1');
+    else fd.append('requestId', importReq);
     try {
       const r = await api('POST', `/api/data/import/${importKind}`, fd);
       setPreview(r);
-      if (!dry) toast(`${r.imported}件を取り込みました`);
+      if (!dry) {
+        toast(`${r.imported}件を取り込みました`);
+        setImportReq(newRequestId());
+      }
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -286,6 +291,7 @@ function DataTab() {
               accept=".csv,text/csv"
               onChange={(e) => {
                 setImportFile(e.target.files?.[0] ?? null);
+                setImportReq(newRequestId());
                 setPreview(null);
               }}
             />

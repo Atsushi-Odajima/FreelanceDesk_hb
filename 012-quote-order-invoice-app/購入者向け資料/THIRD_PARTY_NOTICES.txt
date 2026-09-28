@@ -1,0 +1,45 @@
+THIRD_PARTY_NOTICES — Freelance Desk（商品#012）
+確認日：2026-09-28（npm ls --omit=dev による本番依存の一覧）
+
+本ソフトウェアは以下のオープンソースソフトウェア／フォントを利用しています。
+各ライセンス全文は、それぞれの配布物（node_modules 内の LICENSE ファイル等）に含まれています。
+
+■ フォント（PDF生成時にサブセットを埋め込み）
+- IPA Pゴシック（ipagp.ttf, IPAfont 00303）
+  Copyright 2007-2011 Information-technology Promotion Agency, Japan.
+  ライセンス：IPAフォントライセンスv1.0（全文：server/assets/fonts/IPA_Font_License_Agreement_v1.0.txt）
+  入手元：Debian/Ubuntu パッケージ fonts-ipafont-gothic（上流 https://moji.or.jp/ipafont/ ）
+
+■ 実行時ライブラリ（サーバー・ブラウザ）
+@hono/node-server 2.1.1 ........ MIT
+hono 4.13.10 ................... MIT
+pg 8.23.0 ...................... MIT
+  pg-cloudflare 1.4.0, pg-connection-string 2.14.0, pg-pool 3.14.0, pg-protocol 1.16.0,
+  pg-types 2.2.0, pgpass 1.0.5, postgres-array 2.0.0, postgres-bytea 1.0.1,
+  postgres-date 1.0.7, postgres-interval 1.2.0, xtend 4.0.2 ... MIT
+  pg-int8 1.0.1, split2 4.2.0 ... ISC
+zod 4.6.5 ...................... MIT
+pdf-lib 1.17.1 ................. MIT
+  @pdf-lib/standard-fonts 1.0.0, @pdf-lib/upng 1.0.1 ... MIT
+  tslib 1.14.1 ................. 0BSD
+  pako 1.0.11 .................. MIT AND Zlib
+@pdf-lib/fontkit 1.1.1 ......... MIT
+decimal.js 10.6.0 .............. MIT
+fflate 0.8.3 ................... MIT
+react 19.3.0 / react-dom 19.3.0 / scheduler 0.28.0 ... MIT
+react-router-dom 7.18.4 / react-router 7.18.4 / cookie 1.1.1 / set-cookie-parser 2.7.2 ... MIT
+
+■ 開発・テスト用（配布物の実行には不要）
+TypeScript 5.9.3 (Apache-2.0), Vite 8.3.1 (MIT), @vitejs/plugin-react 6.1.1 (MIT), esbuild 0.28.2 (MIT),
+tsx 4.23.15 (MIT), Vitest 5.0.2 (MIT), @playwright/test 1.63.0 (Apache-2.0), pdfjs-dist 6.3.289 (Apache-2.0),
+concurrently (MIT), @types/* (MIT)
+
+■ MIT License（代表的な条文）
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
+to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of
+the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
