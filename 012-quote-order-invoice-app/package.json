@@ -1,0 +1,57 @@
+{
+  "name": "freelance-desk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Freelance Desk — 見積・案件・請求管理 (商品#012)",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n api,web \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "tsx watch server/src/index.ts",
+    "dev:client": "vite",
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "vite build",
+    "build:server": "node scripts/build-server.mjs",
+    "start": "node dist/server/index.js",
+    "migrate": "tsx server/src/migrate-cli.ts",
+    "codes:create": "tsx server/src/tools/create-signup-codes.ts",
+    "seed:sample": "tsx server/src/tools/seed-sample.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:e2e": "playwright test",
+    "db:local": "bash scripts/local-postgres.sh",
+    "account:reset-link": "tsx server/src/tools/reset-link.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.1",
+    "@pdf-lib/fontkit": "^1.1.1",
+    "decimal.js": "^10.6.0",
+    "fflate": "^0.8.3",
+    "hono": "^4.13.10",
+    "pdf-lib": "^1.17.1",
+    "pg": "^8.23.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-router-dom": "^7.18.4",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^22.20.4",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "concurrently": "^10.0.5",
+    "esbuild": "^0.28.2",
+    "pdfjs-dist": "^6.3.289",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2"
+  }
+}
