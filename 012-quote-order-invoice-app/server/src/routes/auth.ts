@@ -50,9 +50,9 @@ async function accountPayload(q: any, accountId: string) {
 
 export function authRoutes(s: Services) {
   const r = new Hono<AppEnv>();
-  const ipLimiter = new RateLimiter(s.config.isTest ? 1000 : 20, 10 * 60_000); // 認証系: 1IP 10分20回
-  const emailLimiter = new RateLimiter(s.config.isTest ? 1000 : 10, 15 * 60_000); // 1メール 15分10回失敗
-  const signupLimiter = new RateLimiter(s.config.isTest ? 1000 : 5, 60 * 60_000);
+  const ipLimiter = new RateLimiter(s.config.relaxRateLimits ? 1000 : 20, 10 * 60_000); // 認証系: 1IP 10分20回
+  const emailLimiter = new RateLimiter(s.config.relaxRateLimits ? 1000 : 10, 15 * 60_000); // 1メール 15分10回失敗
+  const signupLimiter = new RateLimiter(s.config.relaxRateLimits ? 1000 : 5, 60 * 60_000);
 
   const limitIp = (c: any, limiter = ipLimiter) => {
     if (!limiter.hit(clientIp(c, s))) throw new HttpError(429, '試行回数が多すぎます。しばらく待ってから再度お試しください', 'rate_limited');

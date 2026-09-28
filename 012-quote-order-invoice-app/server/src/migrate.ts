@@ -5,7 +5,7 @@ import type pg from 'pg';
 
 function migrationsDir(): string {
   const here = path.dirname(fileURLToPath(import.meta.url));
-  const candidates = [path.join(here, 'migrations'), path.join(here, '../../server/src/migrations'), path.resolve('server/src/migrations')];
+  const candidates = [path.join(here, 'migrations'), path.join(here, '../migrations'), path.join(here, '../../server/src/migrations'), path.resolve('server/src/migrations')];
   for (const c of candidates) if (fs.existsSync(c)) return c;
   throw new Error('migrations ディレクトリが見つかりません');
 }

@@ -14,6 +14,8 @@ export interface AppConfig {
   trustProxy: boolean;
   staticDir: string | null;
   isTest: boolean;
+  /** 自動テスト専用。本番では絶対に true にしない */
+  relaxRateLimits: boolean;
 }
 
 function bool(v: string | undefined, def: boolean): boolean {
@@ -44,5 +46,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     trustProxy: bool(env.TRUST_PROXY, isProd),
     staticDir: env.STATIC_DIR ?? null,
     isTest: env.NODE_ENV === 'test',
+    relaxRateLimits: env.NODE_ENV === 'test' || bool(env.RATE_LIMIT_RELAXED_FOR_TESTS, false),
   };
 }

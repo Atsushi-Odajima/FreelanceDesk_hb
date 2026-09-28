@@ -13,17 +13,16 @@ const M = 40; // 余白
 const CONTENT_W = A4[0] - M * 2;
 const FOOTER_H = 30;
 
-let fontCache: { regular: Buffer; bold: Buffer } | null = null;
-function fontBytes() {
+// 日本語フォント：IPA Pゴシック（IPAフォントライセンスv1.0）。
+// ※Noto Sans JP は pdf-lib(fontkit) のサブセット化でグリフが欠落する不具合を確認したため不採用（DECISIONS.md 参照）。
+let fontCache: Buffer | null = null;
+function fontBytes(): Buffer {
   if (fontCache) return fontCache;
   const here = path.dirname(fileURLToPath(import.meta.url));
   const candidates = [path.join(here, 'assets/fonts'), path.join(here, '../../assets/fonts'), path.resolve('server/assets/fonts')];
-  const dir = candidates.find((d) => fs.existsSync(path.join(d, 'NotoSansJP_400Regular.ttf')));
+  const dir = candidates.find((d) => fs.existsSync(path.join(d, 'ipagp.ttf')));
   if (!dir) throw new Error('日本語フォントが見つかりません');
-  fontCache = {
-    regular: fs.readFileSync(path.join(dir, 'NotoSansJP_400Regular.ttf')),
-    bold: fs.readFileSync(path.join(dir, 'NotoSansJP_700Bold.ttf')),
-  };
+  fontCache = fs.readFileSync(path.join(dir, 'ipagp.ttf'));
   return fontCache;
 }
 
@@ -63,7 +62,7 @@ class Writer {
     this.pages.push(this.page);
     this.y = A4[1] - M;
     if (this.draft) {
-      this.page.drawText('下書き（未確定）', { x: 130, y: 330, size: 60, font: this.bold, color: rgb(0.85, 0.85, 0.85), rotate: degrees(35), opacity: 0.5 });
+      this.page.drawText('下書き（未確定）', { x: 130, y: 330, size: 60, font: this.font, color: rgb(0.85, 0.85, 0.85), rotate: degrees(35), opacity: 0.5 });
     }
     this.onNewPage(this);
   }
@@ -128,7 +127,7 @@ class Writer {
     return out;
   }
 
-  text(t: string, x: number, y: number, size: number, opts: { font?: PDFFont; color?: ReturnType<typeof rgb>; align?: 'left' | 'right' | 'center'; w?: number } = {}) {
+  text(t: string, x: number, y: number, size: number, opts: { font?: PDFFont; bold?: boolean; color?: ReturnType<typeof rgb>; align?: 'left' | 'right' | 'center'; w?: number } = {}) {
     const font = opts.font ?? this.font;
     let dx = x;
     if (opts.align && opts.w !== undefined) {
@@ -136,7 +135,12 @@ class Writer {
       if (opts.align === 'right') dx = x + opts.w - tw;
       if (opts.align === 'center') dx = x + (opts.w - tw) / 2;
     }
-    this.page.drawText(safeText(t), { x: dx, y, size, font, color: opts.color ?? rgb(0.1, 0.1, 0.1) });
+    const color = opts.color ?? rgb(0.1, 0.1, 0.1);
+    this.page.drawText(safeText(t), { x: dx, y, size, font, color });
+    if (opts.bold) {
+      const d = Math.max(0.25, size * 0.028);
+      this.page.drawText(safeText(t), { x: dx + d, y, size, font, color });
+    }
   }
 
   /** 折り返し段落を描画し、高さを返す（ページ送りあり） */
@@ -144,7 +148,7 @@ class Writer {
     if (!body?.trim()) return;
     const lines = this.wrap(body, this.font, size, CONTENT_W - 12);
     this.ensure(18 + Math.min(lines.length, 3) * (size + 4));
-    this.text(label, M, this.y - 11, 10, { font: this.bold, color: this.accent });
+    this.text(label, M, this.y - 11, 10, { bold: true, color: this.accent });
     this.y -= 17;
     for (const l of lines) {
       this.ensure(size + 4);
@@ -163,9 +167,8 @@ function safeText(t: string): string {
 export async function renderDocPdf(snap: DocSnapshot, opts: RenderOptions): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
-  const fb = fontBytes();
-  const font = await doc.embedFont(fb.regular, { subset: true });
-  const bold = await doc.embedFont(fb.bold, { subset: true });
+  const font = await doc.embedFont(fontBytes(), { subset: true });
+  const bold = font; // 太字は text() 内で重ね描き（疑似ボールド）
   const accent = hexToRgb(snap.issuer.brandColor || '#1f5fbf');
   const title = TITLES[snap.docType];
 
@@ -199,7 +202,7 @@ export async function renderDocPdf(snap: DocSnapshot, opts: RenderOptions): Prom
     w.page.drawRectangle({ x: M, y: w.y - h, width: CONTENT_W, height: h, color: accent });
     let x = M;
     for (const c of cols) {
-      w.text(c.label, x + 4, w.y - 14, 9, { font: w.bold, color: rgb(1, 1, 1), align: c.align === 'left' ? undefined : c.align, w: c.w - 8 });
+      w.text(c.label, x + 4, w.y - 14, 9, { bold: true, color: rgb(1, 1, 1), align: c.align === 'left' ? undefined : c.align, w: c.w - 8 });
       x += c.w;
     }
     w.y -= h;
@@ -208,7 +211,7 @@ export async function renderDocPdf(snap: DocSnapshot, opts: RenderOptions): Prom
   let inTable = false;
   const w = new Writer(doc, font, bold, accent, opts.draft, (wr) => {
     if (wr.pages.length > 1) {
-      wr.text(`${title} ${snap.number}（続き）`, M, wr.y - 12, 10, { font: wr.bold, color: accent });
+      wr.text(`${title} ${snap.number}（続き）`, M, wr.y - 12, 10, { bold: true, color: accent });
       wr.y -= 24;
       if (inTable) drawTableHeader(wr);
     }
@@ -216,7 +219,7 @@ export async function renderDocPdf(snap: DocSnapshot, opts: RenderOptions): Prom
   w.newPage();
 
   // ---- ヘッダ ----
-  w.text(title, M, w.y - 24, 22, { font: bold, color: accent });
+  w.text(title, M, w.y - 24, 22, { bold: true, color: accent });
   const metaX = M + CONTENT_W - 200;
   const meta: Array<[string, string]> = [];
   meta.push([snap.docType === 'quote' ? '見積番号' : snap.docType === 'invoice' ? '請求番号' : '納品番号', snap.number]);
@@ -250,7 +253,7 @@ export async function renderDocPdf(snap: DocSnapshot, opts: RenderOptions): Prom
   ly -= 4;
   const nameLines = w.wrap(`${rc.name}${rc.honorific && !rc.contactName ? ` ${rc.honorific}` : ''}`, bold, 14, leftW);
   for (const l of nameLines) {
-    w.text(l, M, ly - 15, 14, { font: bold });
+    w.text(l, M, ly - 15, 14, { bold: true });
     ly -= 20;
   }
   if (rc.contactName) {
@@ -271,7 +274,7 @@ export async function renderDocPdf(snap: DocSnapshot, opts: RenderOptions): Prom
   }
   const is = snap.issuer;
   for (const l of w.wrap(is.name, bold, 11, 210)) {
-    w.text(l, rx, ry - 12, 11, { font: bold });
+    w.text(l, rx, ry - 12, 11, { bold: true });
     ry -= 15;
   }
   const issuerLines = [
@@ -298,7 +301,7 @@ export async function renderDocPdf(snap: DocSnapshot, opts: RenderOptions): Prom
   if (snap.subject) {
     const sl = w.wrap(`件名：${snap.subject}`, bold, 11, CONTENT_W);
     for (const l of sl) {
-      w.text(l, M, w.y - 12, 11, { font: bold });
+      w.text(l, M, w.y - 12, 11, { bold: true });
       w.y -= 16;
     }
   }
@@ -307,8 +310,8 @@ export async function renderDocPdf(snap: DocSnapshot, opts: RenderOptions): Prom
     const boxH = 34;
     w.ensure(boxH + 10);
     w.page.drawRectangle({ x: M, y: w.y - boxH, width: 300, height: boxH, borderColor: accent, borderWidth: 1.2, color: rgb(0.97, 0.98, 1) });
-    w.text(label, M + 10, w.y - 22, 11, { font: bold });
-    w.text(`${yen(snap.totals.total)} ${snap.taxMode === 'exclusive' ? '（税込）' : '（税込）'}`, M + 90, w.y - 23, 16, { font: bold, align: 'right', w: 200 });
+    w.text(label, M + 10, w.y - 22, 11, { bold: true });
+    w.text(`${yen(snap.totals.total)} （税込）`, M + 90, w.y - 23, 16, { bold: true, align: 'right', w: 200 });
     w.y -= boxH + 8;
   }
   const cond: Array<[string, string]> = [];
@@ -318,7 +321,7 @@ export async function renderDocPdf(snap: DocSnapshot, opts: RenderOptions): Prom
   for (const [k, v] of cond) {
     const lines = w.wrap(v, font, 9, CONTENT_W - 80);
     w.ensure(lines.length * 13 + 2);
-    w.text(k, M, w.y - 10, 9, { font: bold });
+    w.text(k, M, w.y - 10, 9, { bold: true });
     for (const l of lines) {
       w.text(l, M + 80, w.y - 10, 9);
       w.y -= 13;
@@ -391,8 +394,8 @@ export async function renderDocPdf(snap: DocSnapshot, opts: RenderOptions): Prom
       w.ensure(h);
       if (strong) w.page.drawRectangle({ x: bx, y: w.y - h, width: bw, height: h, color: rgb(0.93, 0.95, 0.99) });
       let yy = w.y - (strong ? 16 : 12);
-      kl.forEach((l, i) => w.text(l, bx + 6, yy - i * 12, strong ? 11 : 9, { font: strong ? bold : font }));
-      w.text(v, bx + bw - 106, yy, strong ? 12 : 9, { font: strong ? bold : font, align: 'right', w: 100 });
+      kl.forEach((l, i) => w.text(l, bx + 6, yy - i * 12, strong ? 11 : 9, { bold: !!strong }));
+      w.text(v, bx + bw - 106, yy, strong ? 12 : 9, { bold: !!strong, align: 'right', w: 100 });
       w.page.drawLine({ start: { x: bx, y: w.y - h }, end: { x: bx + bw, y: w.y - h }, thickness: 0.4, color: rgb(0.8, 0.8, 0.8) });
       w.y -= h;
       yy = 0;

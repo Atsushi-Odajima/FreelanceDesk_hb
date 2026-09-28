@@ -4,7 +4,7 @@ import { app, Client, customerInput, rid, setupInvoice, signup, makeApp } from '
 
 async function upload(c: Client, projectId: string, name: string, bytes: Uint8Array, purpose = 'project') {
   const fd = new FormData();
-  fd.append('file', new File([bytes], name));
+  fd.append("file", new File([bytes as BlobPart], name));
   fd.append('purpose', purpose);
   fd.append('projectId', projectId);
   fd.append('requestId', rid());

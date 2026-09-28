@@ -4,9 +4,16 @@ import { zipSync, unzipSync, strToU8, strFromU8 } from 'fflate';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { Client, customerInput, line, quoteDraft, rid, setupInvoice, setupProject, signup, pool } from '../helpers';
 import { parseCsv } from '../../shared/csv';
+import { embeddedGlyphStats } from '../pdf-glyph-check';
+
+async function expectGlyphsIntact(bytes: Uint8Array) {
+  const stats = await embeddedGlyphStats(bytes);
+  expect(stats.length).toBeGreaterThan(0);
+  for (const st of stats) expect(st.empty / st.glyphs, `埋め込みフォントのグリフ欠落 ${JSON.stringify(st)}`).toBeLessThan(0.05);
+}
 
 async function pdfText(bytes: Uint8Array): Promise<{ pages: number; text: string; producer: string }> {
-  const doc = await getDocument({ data: bytes, useSystemFonts: false, disableFontFace: true }).promise;
+  const doc = await getDocument({ data: bytes.slice(), useSystemFonts: false, disableFontFace: true }).promise;
   let text = '';
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i);
@@ -44,6 +51,7 @@ describe('PDF', () => {
     expect(res.headers.get('content-type')).toBe('application/pdf');
     expect(res.headers.get('content-disposition')).toMatch(/^attachment;.*filename\*=UTF-8''/);
     const pdf = await pdfText(bytes);
+    await expectGlyphsIntact(bytes);
     expect(pdf.pages).toBeGreaterThanOrEqual(2);
     expect(pdf.text).toContain('御見積書');
     expect(pdf.text).toContain('Sample Design株式会社');
@@ -59,13 +67,17 @@ describe('PDF', () => {
   it('請求書PDF・納品書PDF：振込先・訂正版表示、内部メモ非混入', async () => {
     const { client: c } = await signup();
     const a = await setupInvoice(c, 100000);
-    const inv = await pdfText((await getBytes(c, `/api/pdf/invoice-versions/${a.invoiceVersionId}`)).bytes);
+    const invBytes = (await getBytes(c, `/api/pdf/invoice-versions/${a.invoiceVersionId}`)).bytes;
+    await expectGlyphsIntact(invBytes);
+    const inv = await pdfText(invBytes);
     expect(inv.text).toContain('請求書');
     expect(inv.text).toContain('テスト銀行');
     expect(inv.text).toContain('お支払期限');
     expect(inv.text).not.toContain('社外秘');
     const d = await c.post(`/api/projects/${a.projectId}/deliveries`, { requestId: rid(), deliveredOn: '2026-10-01', content: '納品物一式', customerComment: 'ご確認ください', internalMemo: '【納品の内部メモ】', includeLines: true }, 201);
-    const del = await pdfText((await getBytes(c, `/api/pdf/deliveries/${d.delivery.id}`)).bytes);
+    const delBytes = (await getBytes(c, `/api/pdf/deliveries/${d.delivery.id}`)).bytes;
+    await expectGlyphsIntact(delBytes);
+    const del = await pdfText(delBytes);
     expect(del.text).toContain('納品書');
     expect(del.text).toContain('納品物一式');
     expect(del.text).toContain('LP制作');
@@ -121,7 +133,7 @@ describe('CSV取込（顧客・品目）', () => {
     const bad = await c.json('POST', '/api/data/import/items', fd(false, sjis, 'shift_jis'));
     expect(bad._status).toBe(400); // UTF-8バイト列をShift_JISとして読むと失敗
     const encoded = encodeShiftJis(sjisText);
-    const okr = await c.json('POST', '/api/data/import/items', fd(false, encoded, 'shift_jis'));
+    const okr = await c.json('POST', '/api/data/import/items', fd(false, encoded as BlobPart, 'shift_jis'));
     expect(okr.imported).toBe(1);
     const items = (await c.get('/api/items')).items;
     expect(items[0]).toMatchObject({ name: 'ロゴ制作', unitPrice: 50000 });
@@ -169,7 +181,7 @@ describe('バックアップ→空アカウントへ復元', () => {
     // データのあるアカウントには復元不可
     const up = (c: Client, b: Uint8Array) => {
       const f = new FormData();
-      f.append('file', new File([b], 'backup.zip'));
+      f.append('file', new File([b as BlobPart], 'backup.zip'));
       return c.json('POST', '/api/data/restore', f);
     };
     expect((await up(A.client, bytes))._status).toBe(422);
@@ -206,7 +218,7 @@ describe('バックアップ→空アカウントへ復元', () => {
     files['data.json'] = strToU8(JSON.stringify(data));
     const B = await signup();
     const f = new FormData();
-    f.append('file', new File([zipSync(files)], 'b.zip'));
+    f.append('file', new File([zipSync(files) as BlobPart], 'b.zip'));
     const r = await B.client.json('POST', '/api/data/restore', f);
     expect(r._status).toBe(422);
     expect((await B.client.get('/api/customers')).customers).toHaveLength(0);

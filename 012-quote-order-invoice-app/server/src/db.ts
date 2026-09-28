@@ -11,11 +11,14 @@ export type Queryable = pg.Pool | pg.PoolClient;
 
 export function createPool(databaseUrl: string): pg.Pool {
   const needsSsl = /sslmode=require/.test(databaseUrl);
-  return new pg.Pool({
+  const pool = new pg.Pool({
     connectionString: databaseUrl,
     max: 10,
     ssl: needsSsl ? { rejectUnauthorized: false } : undefined,
   });
+  // 待機中の接続が切れても（DB再起動・メンテナンス等）プロセスを落とさない
+  pool.on('error', (e) => console.error(`[db] idle client error: ${e.message}`));
+  return pool;
 }
 
 /** トランザクション内で fn を実行。例外時はロールバック */

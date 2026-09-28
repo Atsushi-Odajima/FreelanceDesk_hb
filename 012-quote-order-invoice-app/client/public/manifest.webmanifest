@@ -1,0 +1,18 @@
+{
+  "name": "Freelance Desk — 見積・案件・請求管理",
+  "short_name": "Freelance Desk",
+  "description": "見積から請求・入金まで、ひとつの案件で管理",
+  "lang": "ja",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "id": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f5f7fb",
+  "theme_color": "#1f5fbf",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
