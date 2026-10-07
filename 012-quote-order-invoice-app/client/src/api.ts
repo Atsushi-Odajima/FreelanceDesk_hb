@@ -55,7 +55,7 @@ export async function api<T = any>(method: string, path: string, body?: unknown)
     data = null;
   }
   if (!res.ok) {
-    if (res.status === 401 && unauthorizedHandler && !path.startsWith('/api/auth/login')) unauthorizedHandler();
+    if (res.status === 401 && unauthorizedHandler && !path.startsWith('/api/auth/login') && !path.startsWith('/api/portal/')) unauthorizedHandler();
     throw new ApiError(res.status, data?.error?.message ?? `エラーが発生しました（${res.status}）`, data?.error?.code, data?.error?.details);
   }
   return data as T;

@@ -197,7 +197,7 @@ h3 {
 @media (min-width: 1024px) {
   .app {
     display: grid;
-    grid-template-columns: 220px 1fr;
+    grid-template-columns: 220px minmax(0, 1fr);
   }
   .topbar,
   .bottom-nav {
@@ -1031,4 +1031,163 @@ table.table {
   min-width: 0;
   overflow-wrap: anywhere;
   font-size: 0.9rem;
+}
+
+/* ---------- FreelanceDesk クライアントポータル / 修正指示 / 写真セレクト ---------- */
+a.chip {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+.pin-wrap {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
+}
+.pin-wrap img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  user-select: none;
+}
+.pin-wrap.placing {
+  cursor: crosshair;
+  outline: 2px dashed var(--accent);
+}
+.pin {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  min-width: 26px;
+  height: 26px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #d93025;
+  color: #fff;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.4);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 22px;
+  text-align: center;
+  pointer-events: none;
+}
+.pin.keep {
+  background: #1d6fd8;
+  border-radius: 6px;
+}
+.pin.resolved {
+  opacity: 0.45;
+}
+.pin.draft {
+  background: #111;
+}
+.pin-no {
+  display: inline-block;
+  min-width: 22px;
+  height: 22px;
+  line-height: 22px;
+  border-radius: 999px;
+  background: #d93025;
+  color: #fff;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  margin-right: 4px;
+}
+.pin-no.keep {
+  background: #1d6fd8;
+  border-radius: 5px;
+}
+.comment {
+  border-top: 1px solid var(--border);
+  padding: 8px 0;
+}
+.comment.resolved .pre {
+  color: var(--muted);
+}
+.comment .reply {
+  margin: 4px 0 4px 16px;
+  padding-left: 8px;
+  border-left: 3px solid var(--border);
+}
+.portal-top {
+  border-top: 4px solid var(--brand, var(--accent));
+}
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+.photo-cell {
+  position: relative;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface-2);
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.photo-cell.picked {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.photo-cell img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+}
+.photo-cell .cap {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 4px 6px;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+.photo-cell .num {
+  font-weight: 700;
+}
+.photo-cell .mark {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  text-align: center;
+  line-height: 28px;
+  font-weight: 700;
+}
+.photo-cell.picked .mark {
+  background: var(--accent);
+}
+.sheet-text {
+  white-space: pre-wrap;
+  font-family: inherit;
+  margin-top: 12px;
+}
+.invite-url {
+  word-break: break-all;
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+}
+@media print {
+  .no-print,
+  .sidebar,
+  .topbar,
+  .bottom-nav,
+  .page-header {
+    display: none !important;
+  }
+  .card {
+    box-shadow: none;
+    border: none;
+  }
 }

@@ -18,6 +18,8 @@ import PaymentsPage from './pages/Payments';
 import SearchPage from './pages/Search';
 import SettingsPage from './pages/Settings';
 import MenuPage from './pages/Menu';
+import { PortalHomePage, PortalInvitePage, PortalProjectPage, PortalSelectionPage, PortalSheetPage, PortalVersionPage } from './pages/Portal';
+import { OpSelectionPage, OpSheetPage, OpVersionPage } from './pages/PortalOperator';
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { account, loading } = useAuth();
@@ -49,12 +51,22 @@ export default function App() {
             <Route path="/signup" element={<PublicOnly><SignupPage /></PublicOnly>} />
             <Route path="/recover" element={<PublicOnly><RecoverPage /></PublicOnly>} />
             <Route path="/reset" element={<ResetPage />} />
+            {/* FreelanceDesk クライアントポータル（お客様向け。運営者ログインとは別） */}
+            <Route path="/portal" element={<PortalHomePage />} />
+            <Route path="/portal/invite" element={<PortalInvitePage />} />
+            <Route path="/portal/p/:pid" element={<PortalProjectPage />} />
+            <Route path="/portal/p/:pid/v/:vid" element={<PortalVersionPage />} />
+            <Route path="/portal/p/:pid/v/:vid/sheet" element={<PortalSheetPage />} />
+            <Route path="/portal/p/:pid/select/:sid" element={<PortalSelectionPage />} />
             <Route element={<RequireAuth><Layout /></RequireAuth>}>
               <Route index element={<DashboardPage />} />
               <Route path="projects" element={<ProjectsPage />} />
               <Route path="projects/new" element={<ProjectNewPage />} />
               <Route path="projects/:id" element={<ProjectsPage />} />
               <Route path="projects/:id/edit" element={<ProjectNewPage />} />
+              <Route path="projects/:id/portal/v/:vid" element={<OpVersionPage />} />
+              <Route path="projects/:id/portal/v/:vid/sheet" element={<OpSheetPage />} />
+              <Route path="projects/:id/portal/select/:sid" element={<OpSelectionPage />} />
               <Route path="quotes/:versionId" element={<QuoteEditorPage />} />
               <Route path="invoices" element={<InvoicesPage />} />
               <Route path="invoices/:id" element={<InvoiceDetailPage />} />

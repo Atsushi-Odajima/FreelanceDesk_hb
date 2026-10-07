@@ -4,11 +4,12 @@ import { ApiError, del, newRequestId, patch, post, put } from '../api';
 import { useApi } from '../hooks';
 import { AsyncButton, DateText, Empty, ErrorBanner, Field, Loading, Modal, Money, PaymentBadge, StatusBadge, useToast } from '../components/ui';
 import PdfActions from '../components/PdfActions';
+import { PortalTab } from './PortalOperator';
 import { AttachmentList, UploadButtons } from '../components/Attachments';
 import { PROJECT_STATUSES, PROJECT_STATUS_LABELS, type ProjectStatus } from '../../../shared/status';
 import { formatDateTimeJa, todayIn } from '../../../shared/dates';
 
-type Tab = 'overview' | 'quote' | 'tasks' | 'delivery' | 'invoice' | 'files' | 'history';
+type Tab = 'overview' | 'quote' | 'tasks' | 'delivery' | 'invoice' | 'files' | 'portal' | 'history';
 const TABS: Array<[Tab, string]> = [
   ['overview', '概要'],
   ['quote', '見積・受注'],
@@ -16,6 +17,7 @@ const TABS: Array<[Tab, string]> = [
   ['delivery', '納品'],
   ['invoice', '請求・入金'],
   ['files', 'ファイル'],
+  ['portal', 'クライアントポータル'],
   ['history', '履歴'],
 ];
 
@@ -28,6 +30,8 @@ export default function ProjectDetail({ id, onChanged, embedded }: { id: string;
   const [params, setParams] = useSearchParams();
   const presetVersion = params.get('version');
   useEffect(() => {
+    const t = params.get('tab');
+    if (t && TABS.some(([k]) => k === t)) setTab(t as Tab);
     if (params.get('action') === 'order') {
       setTab('quote');
       setModal('order');
@@ -359,6 +363,7 @@ export default function ProjectDetail({ id, onChanged, embedded }: { id: string;
           </div>
         </div>
       )}
+      {tab === 'portal' && <PortalTab projectId={id} onChanged={refresh} />}
       {tab === 'history' && <History projectId={id} events={d.events} onChanged={refresh} />}
 
       {modal === 'order' && !d.activeOrder && (

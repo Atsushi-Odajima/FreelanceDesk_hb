@@ -79,3 +79,52 @@
 - ホスティング推奨：Render（Web Starter + Postgres Basic-256mb、約$13/月）。Dockerfile を同梱しているため他社PaaSにも移行可能。
 - レート制限はプロセス内メモリ（単一インスタンス前提）。複数台構成にする場合は共有ストアへの置換が必要（NEXT_STEPS）。
 - 自動テスト用のレート制限緩和は `RATE_LIMIT_RELAXED_FOR_TESTS` 明示時のみ。本番では設定しない。
+
+## FreelanceDesk クライアントポータルの統合（2026-10-07, candidate 7）
+統合元（読み取り専用・変更していない）：hanbai14 `014-client-portal`（Client Portal。Fastify + better-sqlite3 + React PWA、ブランチ `claude/merge-image-tools`。同アプリに統合済みの「修正指示」「写真セレクト」を含む）。
+命名規則：統合した機能は本アプリ名を冠する ―「FreelanceDesk クライアントポータル」「FreelanceDesk 修正指示」「FreelanceDesk 写真セレクト」。
+
+### M1. 顧客＝既存の `customers`、案件＝既存の `projects`（Client Portal の clients / projects は作らない）
+- ポータルは案件ごと。案件の顧客（customers.email）宛てに招待リンクを発行する。案件に `portal_status`（draft/published/closed）・`portal_status_label`（顧客に見せる状況。空なら案件状態の表示名）・`portal_guidance` を追加。
+- 理由：FreelanceDesk の案件・顧客を二重管理しない。見積〜請求の流れと同じ画面（案件詳細の「クライアントポータル」タブ）で扱える。
+
+### M2. 認証は別の領域（realm）：`/api/portal/*` ＋ Cookie `fd_portal`（Path=/api/portal）
+- 全体の運営者認証ミドルウェアは `/api/portal/*` を素通しし、ポータル側で顧客セッションを必須にする。運営者Cookieでは顧客APIに、顧客Cookieでは運営者APIに入れない（テストあり）。CSRF（X-Requested-With + Origin）は共通。
+- 招待：256bit乱数トークン（base64url 43文字）、DBは SHA-256 のみ、URL は `/portal/invite#t=`（フラグメント）。期限 既定14日（1〜90日）。再発行で旧リンクは自動失効、手動失効、「アクセス停止」（全リンク失効＋入室済み端末も閲覧不可。再開は再発行）。引換時に登録メールを照合し、5回失敗でリンクをロック。使用回数・最終使用を記録。
+- 閲覧できる案件＝同一アカウント・案件の顧客＝セッションの顧客・ポータル公開中・**その案件の招待を実際に使った**（停止されていない）案件。同じ顧客の別案件でも、その案件のリンクを使うまでは見えない（`clientProject()` に集約。他アカウント／他案件のIDはすべて 404）。
+- セッションは顧客単位（30日・スライディング）。1端末で同じ事業者の複数案件を見られる。
+
+### M3. ファイルは既存の `attachments` + `attachment_blobs`（bytea）を使う
+- `attachments.purpose` に `portal_version`（制作物の版）と `selection_photo`（写真セレクト）を追加。保存・検証は既存の `detectFile`/`sanitizeFilename`/容量上限を共通化（`services/attachmentStore.ts`）。10MB/ファイル・アカウント容量上限もそのまま。
+- これらは案件の「ファイル」タブに出さず、通常の添付削除APIでは消せない（409）。顧客への配信は `clientReadableAttachment()` で用途ごとに判定（提出済みの版／公開中の納品の添付／公開済みセットの写真のみ。内部ファイル・ロゴは 404）。
+
+### M4. 納品の公開＝既存の納品記録（deliveries）をポータルに公開
+- Client Portal の「納品セット」は作らず、FreelanceDesk の納品記録（納品書PDF・納品の添付）に `portal_status`（private/published/withdrawn）と承認済みの版（`portal_delivery_items`）を付けて公開する。公開時に各版の有効な承認を再確認。公開中は承認取消・納品記録の削除を拒否。顧客は納品書PDF・添付・承認済みの版をダウンロードできる（内部メモは出さない）。
+
+### M5. 承認・修正依頼・修正指示（Client Portal の D6・D12-1 をそのまま移植）
+- 承認は最新版かつ確認待ち/修正依頼の版のみ。顧客が見ていた版番号（expectedVersionNumber）も照合し、ずれていれば 409 `stale_version`。冪等キー（アカウント内UNIQUE）＋「有効な承認は1版1件」部分UNIQUEインデックス。承認・修正依頼・版のファイルは DB トリガーで変更不可。取消は運営者のみ（理由必須）。
+- ピン（pin_x/pin_y 0〜1、pin_number は作成時に確定し振り直さない、pin_type 6種）。修正依頼は依頼時点の未解決ピンIDを保持し、その依頼の修正指示書を再現できる。指示書 `GET …/versions/:vid/instructions?format=json|txt`（TXT は BOM+CRLF）。画面は番号入り画像＋本文の印刷ビュー（ブラウザ印刷でPDF保存）。共有ロジック `shared/correctionSheet.ts`, `shared/photoSelect.ts` は無改変で移植（コメントの名称のみ変更）。
+
+### M6. 案件状態・履歴との連携
+- `project_events.client_visible` を追加し、顧客にも見せる履歴（版の提出・修正依頼・承認/取消・納品公開/取下げ・セレクト公開/終了/送信）だけをポータルの「これまでの経過」に表示。招待発行などの運営者向け履歴は出さない。
+- 状態の自動前進（既存 `advanceProjectStatus`、後戻りなし）の対応：
+  | ポータル操作 | 案件状態 | 条件 |
+  |---|---|---|
+  | 版の提出 | 作業中（in_progress） | 受注以降の案件のみ（見積前の提案段階では動かさない） |
+  | 全制作物の最新版が承認済み | 納品待ち（awaiting_delivery） | 受注以降の案件のみ |
+  | 納品をポータルで公開 | 納品済み（delivered） | 既存の納品記録と同じ |
+  | 修正依頼・承認取消 | 変更しない | FreelanceDesk に「修正中」状態はなく、自動で状態を戻さない方針のため（履歴にのみ記録） |
+
+### M7. レート制限（既存の RateLimiter を使用、単一インスタンス前提）
+招待の確認・引換：1IP 10分10回／承認：1セッション 1分20回／コメント・修正依頼・選択保存・送信：1セッション 1分30回（＋既存の全API 1IP 600回/分）。
+
+### M8. 統合しなかったもの（理由）
+- 分割・再開可能アップロード、S3/R2 ドライバ：FreelanceDesk は添付を DB（bytea, 10MB上限）に保存する設計で、単一プロセス・Render 前提。大容量は NEXT_STEPS。
+- メール通知・マジックリンク再ログイン：FreelanceDesk にメール送信基盤がない（D「認証」と同じ方針）。招待リンクは運営者がメール/LINEで手渡し。再ログインはリンクの再利用（期限内）か再発行。
+- ZIP一括ダウンロード：個別ダウンロードで代替（ZIP生成をサーバーに追加しない）。
+- 資料依頼（document requests）・顧客からのファイル提出：今回の範囲外（顧客→運営者のアップロード面を増やさない）。
+- ハッシュチェーン監査ログ：FreelanceDesk の履歴は project_events。改ざん検出が必要なら別途。
+- アプリ内通知センター：運営者は案件の履歴と各タブの件数表示で確認（ダッシュボード連携は NEXT_STEPS）。
+- テンプレート・チェックリスト・案件カテゴリ・サンプル案件・Client Portal 独自の案件状態（preparing/client_review 等）：FreelanceDesk の既存機能・状態と重複するため。
+- 修正指示の番号入り画像の保存（Canvas描画）・顧客による承認取消・コメント編集：印刷ビュー／削除で代替（UIは後で磨く前提の最小実装）。
+- 写真セレクトの共有HTML/A4印刷レイアウト・サムネイル生成（Client Portal でも未統合）。

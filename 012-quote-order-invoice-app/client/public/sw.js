@@ -4,7 +4,7 @@
  * - 更新系（POST/PUT/PATCH/DELETE）はキャッシュも再送もしない（オフライン同期はしない）
  * - PDF・添付・バックアップ・CSVはキャッシュしない
  */
-const VERSION = 'fd-v1';
+const VERSION = 'fd-v2';
 const SHELL = `${VERSION}-shell`;
 const API = `${VERSION}-api`;
 const SHELL_URLS = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
@@ -26,7 +26,8 @@ self.addEventListener('message', (event) => {
   if (event.data === 'clear-api-cache') event.waitUntil(caches.delete(API));
 });
 
-const NO_CACHE_API = [/^\/api\/pdf\//, /^\/api\/attachments\//, /^\/api\/data\//, /^\/api\/auth\//];
+// クライアントポータル（お客様向け）は認可・公開状態を確実に反映するため一切キャッシュしない
+const NO_CACHE_API = [/^\/api\/pdf\//, /^\/api\/attachments\//, /^\/api\/data\//, /^\/api\/auth\//, /^\/api\/portal\//, /\/portal\/.*\/export$/];
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;

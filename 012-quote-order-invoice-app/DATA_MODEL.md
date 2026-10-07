@@ -1,6 +1,6 @@
 # DATA_MODEL — 主要テーブルと関連
 
-正は `server/src/migrations/001_init.sql` と `002_integrity.sql`（quote_versions.project_id / based_on_version_id、invoices.current_version_id、business_profiles.logo_attachment_id にも複合外部キーを追加）。すべての業務テーブルは `account_id` を持ち、`(account_id, id)` の複合外部キーで同一アカウント内の関連のみ許可。
+正は `server/src/migrations/001_init.sql`、`002_integrity.sql`、`003_client_portal.sql`（FreelanceDesk クライアントポータル）と（quote_versions.project_id / based_on_version_id、invoices.current_version_id、business_profiles.logo_attachment_id にも複合外部キーを追加）。すべての業務テーブルは `account_id` を持ち、`(account_id, id)` の複合外部キーで同一アカウント内の関連のみ許可。
 
 ```
 accounts ─┬─ sessions / recovery_codes / password_reset_tokens
@@ -57,3 +57,23 @@ accounts ─┬─ sessions / recovery_codes / password_reset_tokens
 - 請求の入金状態：`summarizePayment(total, Σallocations, due_date, today)`
 - 未割当入金：`payment.amount − Σallocations`
 - タイムライン：`server/src/services/timeline.ts`
+
+## FreelanceDesk クライアントポータル（003_client_portal.sql）
+```
+projects（+ portal_status draft/published/closed, portal_status_label, portal_guidance）
+ ├─< portal_invites（token_hash UNIQUE, email, expires_at, revoked_at, revoke_reason ''/manual/reissued/locked/stopped, stopped_at, use_count, failed_attempts）
+ ├─< portal_deliverables ──< portal_versions（version_number 連番, attachment_id UNIQUE → attachments(purpose='portal_version'), status in_review/changes_requested/approved/superseded）
+ │                                ├─< portal_comments（parent_id, author_type operator/client, customer_id, pin_x/pin_y 0..1, pin_number（版内UNIQUE・振り直さない）, pin_type change/delete/add/move/keep/other, resolved_at, deleted_at）
+ │                                ├─< portal_change_requests（body, pin_comment_ids jsonb = 依頼時点の未解決ピン）※UPDATE禁止トリガー
+ │                                └─< portal_approvals（version_number, customer_id, attachment_id, file_sha256, idempotency_key（アカウント内UNIQUE）, revoked_at/revoke_reason）
+ │                                      ※ 有効な承認は1版1件（部分UNIQUE）、本体列の UPDATE 禁止トリガー
+ ├─< deliveries（+ portal_status private/published/withdrawn, portal_published_at, portal_message）──< portal_delivery_items（version_id, approval_id）
+ └─< selection_sets（status draft/open/closed, show_names）──< selection_photos（position=番号, attachment_id UNIQUE → attachments(purpose='selection_photo')）
+                                                       ├─< selection_picks（PK set_id+customer_id+photo_id）
+                                                       └─< selection_responses（PK set_id+customer_id, note, picks_updated_at, submitted_at, submitted_count）
+customers ──< portal_sessions（token_hash PK, customer_id, invite_id, expires_at, last_seen_at）
+project_events（+ client_visible boolean）
+attachments.purpose に 'portal_version' / 'selection_photo' を追加
+```
+- すべて `account_id` を持ち、`(account_id, …)` の複合外部キーで同一アカウント内のみ関連付け可能。案件削除・アカウント削除で連鎖削除。
+- バックアップ（BACKUP_TABLES）に portal_deliverables / portal_versions / portal_comments / portal_change_requests / portal_approvals / portal_delivery_items / selection_sets / selection_photos / selection_picks / selection_responses を追加（形式バージョンは1のまま。旧バックアップも復元可）。**招待リンク・顧客セッションは含めない**（復元後に招待リンクを再発行）。
