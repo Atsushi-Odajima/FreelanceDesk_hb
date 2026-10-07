@@ -22,8 +22,17 @@ export type AppEnv = {
     accountId: string;
     sessionHash: string;
     isDemo: boolean;
+    /** クライアントポータル（顧客セッション）。/api/portal/* でのみ設定される */
+    portal: PortalSession;
   };
 };
+
+export interface PortalSession {
+  accountId: string;
+  customerId: string;
+  tokenHash: string;
+  clientName: string;
+}
 
 export type AppContext = Context<AppEnv>;
 

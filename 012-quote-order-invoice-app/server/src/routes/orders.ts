@@ -4,7 +4,7 @@ import { one, withTx } from '../db';
 import { declineSchema, deliverySchema, orderSchema } from '../schemas';
 import { camelRow } from '../services/format';
 import { cancelOrder, createDelivery, createOrder } from '../services/orders';
-import { notFound } from '../services/errors';
+import { notFound, unprocessable } from '../services/errors';
 
 export function orderRoutes(s: Services) {
   const r = new Hono<AppEnv>();
@@ -40,6 +40,7 @@ export function orderRoutes(s: Services) {
     await withTx(s.pool, async (tx) => {
       const d = await one(tx, 'SELECT * FROM deliveries WHERE account_id=$1 AND id=$2 FOR UPDATE', [acc, id]);
       if (!d) throw notFound('納品');
+      if (d.portal_status === 'published') throw unprocessable('クライアントポータルで公開中の納品は削除できません。先にポータルの公開を取り下げてください');
       await tx.query('DELETE FROM deliveries WHERE account_id=$1 AND id=$2', [acc, id]);
       await tx.query(
         "INSERT INTO project_events (account_id, project_id, kind, title) VALUES ($1,$2,'delivery_deleted',$3)",

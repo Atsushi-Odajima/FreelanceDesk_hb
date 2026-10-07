@@ -83,15 +83,15 @@ export function projectRoutes(s: Services) {
       many(s.pool, 'SELECT * FROM tasks WHERE account_id=$1 AND project_id=$2 ORDER BY sort_order, created_at', [acc, id]),
       many(
         s.pool,
-        'SELECT id, number, delivered_on, content, customer_comment, internal_memo, include_lines, created_at FROM deliveries WHERE account_id=$1 AND project_id=$2 ORDER BY delivered_on, created_at',
+        'SELECT id, number, delivered_on, content, customer_comment, internal_memo, include_lines, portal_status, portal_published_at, created_at FROM deliveries WHERE account_id=$1 AND project_id=$2 ORDER BY delivered_on, created_at',
         [acc, id],
       ),
       many(
         s.pool,
-        "SELECT id, delivery_id, purpose, filename, mime, size_bytes, note, created_at FROM attachments WHERE account_id=$1 AND project_id=$2 ORDER BY created_at",
+        "SELECT id, delivery_id, purpose, filename, mime, size_bytes, note, created_at FROM attachments WHERE account_id=$1 AND project_id=$2 AND purpose IN ('project','delivery') ORDER BY created_at",
         [acc, id],
       ),
-      many(s.pool, 'SELECT id, kind, title, ref_type, ref_id, note, occurred_at FROM project_events WHERE account_id=$1 AND project_id=$2 ORDER BY occurred_at DESC, id LIMIT 300', [
+      many(s.pool, 'SELECT id, kind, title, ref_type, ref_id, note, client_visible, occurred_at FROM project_events WHERE account_id=$1 AND project_id=$2 ORDER BY occurred_at DESC, id LIMIT 300', [
         acc,
         id,
       ]),

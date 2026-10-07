@@ -21,6 +21,8 @@ import { paymentRoutes } from './routes/payments';
 import { dashboardRoutes } from './routes/dashboard';
 import { dataRoutes } from './routes/data';
 import { pdfRoutes } from './routes/pdf';
+import { portalAdminRoutes } from './routes/portalAdmin';
+import { portalRoutes } from './routes/portal';
 import { isUniqueViolation } from './db';
 import { clientIp } from './services/ip';
 
@@ -77,10 +79,11 @@ export function createApp(deps: Deps) {
   // --- 本文サイズ上限（添付・復元・CSV取込は各ルートで個別に制限） ---
   const jsonLimit = bodyLimit({ maxSize: 3 * 1024 * 1024, onError: () => { throw new HttpError(413, 'データが大きすぎます', 'too_large'); } });
   const uploadLimit = bodyLimit({ maxSize: s.config.uploadMaxBytes + 256 * 1024, onError: () => { throw new HttpError(413, `ファイルが大きすぎます（上限 ${Math.floor(s.config.uploadMaxBytes / 1024 / 1024)}MB）`, 'too_large'); } });
+  const PORTAL_UPLOAD = /^\/api\/projects\/[^/]+\/portal\/(deliverables\/[^/]+\/versions|selections\/[^/]+\/photos)$/;
   app.use('/api/*', async (c, next) => {
     const p = c.req.path;
     if (p === '/api/data/restore' || p.startsWith('/api/data/import/')) return next();
-    if (p === '/api/attachments') return uploadLimit(c, next);
+    if (p === '/api/attachments' || PORTAL_UPLOAD.test(p)) return uploadLimit(c, next);
     return jsonLimit(c, next);
   });
 
@@ -88,6 +91,8 @@ export function createApp(deps: Deps) {
   const PUBLIC_API = new Set(['/api/auth/signup', '/api/auth/login', '/api/auth/recover', '/api/auth/reset', '/api/auth/demo', '/api/auth/config', '/api/health']);
   app.use('/api/*', async (c, next) => {
     if (PUBLIC_API.has(c.req.path)) return next();
+    // クライアントポータル（顧客）は別の認証（fd_portal Cookie）。運営者セッションは参照しない
+    if (c.req.path === '/api/portal' || c.req.path.startsWith('/api/portal/')) return next();
     const sess = await readSession(s.pool, s, c);
     if (!sess) throw new HttpError(401, 'ログインしてください', 'unauthenticated');
     c.set('accountId', sess.accountId);
@@ -105,7 +110,9 @@ export function createApp(deps: Deps) {
   app.route('/api/business', businessRoutes(s));
   app.route('/api/customers', customerRoutes(s));
   app.route('/api/items', itemRoutes(s));
+  app.route('/api/projects', portalAdminRoutes(s));
   app.route('/api/projects', projectRoutes(s));
+  app.route('/api/portal', portalRoutes(s));
   app.route('/api/attachments', attachmentRoutes(s));
   app.route('/api', quoteRoutes(s));
   app.route('/api', orderRoutes(s));

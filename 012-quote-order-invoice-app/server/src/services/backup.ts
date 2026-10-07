@@ -29,6 +29,17 @@ export const BACKUP_TABLES = [
   'payments',
   'payment_allocations',
   'counters',
+  // FreelanceDesk クライアントポータル（招待リンク・顧客セッションは含めない：復元後に招待リンクを再発行する）
+  'portal_deliverables',
+  'portal_versions',
+  'portal_comments',
+  'portal_change_requests',
+  'portal_approvals',
+  'portal_delivery_items',
+  'selection_sets',
+  'selection_photos',
+  'selection_picks',
+  'selection_responses',
 ] as const;
 
 type Row = Record<string, any>;
@@ -227,6 +238,8 @@ export async function restoreBackup(pool: pg.Pool, accountId: string, zip: Uint8
       const rows = [...(tables[t] ?? [])];
       // 版の自己参照（based_on_version_id）のため、古い版から順に入れる
       if (t === 'quote_versions') rows.sort((a, b) => Number(a.version) - Number(b.version));
+      // コメントの返信（parent_id）のため、親コメントから入れる
+      if (t === 'portal_comments') rows.sort((a, b) => Number(!!a.parent_id) - Number(!!b.parent_id));
       for (const raw of rows) {
         const row = remapDeep(raw, map) as Row;
         row.account_id = accountId;

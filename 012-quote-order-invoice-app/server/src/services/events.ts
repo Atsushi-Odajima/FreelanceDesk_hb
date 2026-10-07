@@ -9,11 +9,11 @@ export async function logEvent(
   projectId: string,
   kind: string,
   title: string,
-  opts: { refType?: string; refId?: string; note?: string } = {},
+  opts: { refType?: string; refId?: string; note?: string; clientVisible?: boolean } = {},
 ) {
   await q.query(
-    `INSERT INTO project_events (account_id, project_id, kind, title, ref_type, ref_id, note) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-    [accountId, projectId, kind, title, opts.refType ?? null, opts.refId ?? null, opts.note ?? ''],
+    `INSERT INTO project_events (account_id, project_id, kind, title, ref_type, ref_id, note, client_visible) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+    [accountId, projectId, kind, title, opts.refType ?? null, opts.refId ?? null, opts.note ?? '', opts.clientVisible ?? false],
   );
 }
 
