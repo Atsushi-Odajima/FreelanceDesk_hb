@@ -20,6 +20,8 @@ import SettingsPage from './pages/Settings';
 import MenuPage from './pages/Menu';
 import { PortalHomePage, PortalInvitePage, PortalProjectPage, PortalSelectionPage, PortalSheetPage, PortalVersionPage } from './pages/Portal';
 import { OpSelectionPage, OpSheetPage, OpVersionPage } from './pages/PortalOperator';
+import { PortalIntakePage } from './pages/PortalIntake';
+import { IntakeTemplateEditPage, IntakeTemplatesPage } from './pages/IntakeOperator';
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { account, loading } = useAuth();
@@ -58,6 +60,7 @@ export default function App() {
             <Route path="/portal/p/:pid/v/:vid" element={<PortalVersionPage />} />
             <Route path="/portal/p/:pid/v/:vid/sheet" element={<PortalSheetPage />} />
             <Route path="/portal/p/:pid/select/:sid" element={<PortalSelectionPage />} />
+            <Route path="/portal/p/:pid/intake/:iid" element={<PortalIntakePage />} />
             <Route element={<RequireAuth><Layout /></RequireAuth>}>
               <Route index element={<DashboardPage />} />
               <Route path="projects" element={<ProjectsPage />} />
@@ -67,6 +70,8 @@ export default function App() {
               <Route path="projects/:id/portal/v/:vid" element={<OpVersionPage />} />
               <Route path="projects/:id/portal/v/:vid/sheet" element={<OpSheetPage />} />
               <Route path="projects/:id/portal/select/:sid" element={<OpSelectionPage />} />
+              <Route path="intake-templates" element={<IntakeTemplatesPage />} />
+              <Route path="intake-templates/:id" element={<IntakeTemplateEditPage />} />
               <Route path="quotes/:versionId" element={<QuoteEditorPage />} />
               <Route path="invoices" element={<InvoicesPage />} />
               <Route path="invoices/:id" element={<InvoiceDetailPage />} />

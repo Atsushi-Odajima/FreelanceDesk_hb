@@ -1191,3 +1191,59 @@ a.chip {
     border: none;
   }
 }
+
+/* ---- FreelanceDesk ヒアリング ---- */
+.choice-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+.choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+}
+.choice input {
+  width: 20px;
+  height: 20px;
+}
+.repeat-row {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+}
+.file-row {
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+.file-row a {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.file-btn {
+  align-self: flex-start;
+  cursor: pointer;
+}
+.sticky-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+}
+.package-preview {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 480px;
+  overflow: auto;
+  font-size: 12px;
+  background: var(--surface-2);
+  padding: 8px;
+  border-radius: 6px;
+}
+.list-item.active {
+  outline: 2px solid var(--accent);
+}
+.template-row .grid {
+  margin-bottom: 4px;
+}

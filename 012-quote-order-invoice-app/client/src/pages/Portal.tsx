@@ -6,10 +6,11 @@ import { useApi } from '../hooks';
 import { AsyncButton, DateText, Empty, ErrorBanner, Field, Loading, useToast } from '../components/ui';
 import { InstructionSheet, VersionReview, VersionStatusBadge } from '../components/PortalReview';
 import { formatDateTimeJa } from '../../../shared/dates';
+import { intakeClientLabel } from './PortalIntake';
 
 const API = '/api/portal';
 
-function Shell({ children, business, onLogout }: { children: ReactNode; business?: { name: string; brandColor: string } | null; onLogout?: boolean }) {
+export function Shell({ children, business, onLogout }: { children: ReactNode; business?: { name: string; brandColor: string } | null; onLogout?: boolean }) {
   const nav = useNavigate();
   return (
     <div className="portal" style={{ ['--brand' as string]: business?.brandColor ?? undefined }}>
@@ -37,7 +38,7 @@ function Shell({ children, business, onLogout }: { children: ReactNode; business
   );
 }
 
-function NeedLink({ message }: { message?: string | null }) {
+export function NeedLink({ message }: { message?: string | null }) {
   return (
     <Shell>
       <div className="card">
@@ -190,6 +191,30 @@ export function PortalProjectPage() {
           </div>
         )}
       </div>
+
+      {d.intakes?.length > 0 && (
+        <div className="card" data-testid="portal-intakes">
+          <h2 style={{ marginTop: 0 }}>ヒアリング（ご回答のお願い）</h2>
+          <div className="list">
+            {d.intakes.map((ik: any) => (
+              <Link key={ik.id} className="list-item" to={`/portal/p/${pid}/intake/${ik.id}`}>
+                <div className="row between">
+                  <span className="title">{ik.title}</span>
+                  <span className={`badge ${ik.status === 'ready' ? 'green' : ik.status === 'needs_client' ? 'red' : 'blue'}`}>{intakeClientLabel(ik.status)}</span>
+                </div>
+                <div className="meta">
+                  必要項目 {ik.progress?.submitted ?? 0}/{ik.progress?.denominator ?? 0} 提出済み
+                  {ik.dueDate && (
+                    <>
+                      ・回答期限 <DateText v={ik.dueDate} />
+                    </>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {d.selections.length > 0 && (
         <div className="card">

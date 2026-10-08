@@ -12,6 +12,7 @@ const NAV = [
   { to: '/payments/import', label: '銀行CSV照合', icon: IconBank, pcOnly: true },
   { to: '/customers', label: '顧客', icon: IconUsers },
   { to: '/items', label: '品目', icon: IconBox, pcOnly: true },
+  { to: '/intake-templates', label: 'ヒアリング設定', icon: IconFolder, pcOnly: true },
   { to: '/search', label: '検索', icon: IconSearch, pcOnly: true },
   { to: '/settings', label: '設定・データ', icon: IconGear, pcOnly: true },
 ];

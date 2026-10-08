@@ -5,13 +5,15 @@ import { useApi } from '../hooks';
 import { AsyncButton, DateText, Empty, ErrorBanner, Field, Loading, Modal, Money, PaymentBadge, StatusBadge, useToast } from '../components/ui';
 import PdfActions from '../components/PdfActions';
 import { PortalTab } from './PortalOperator';
+import { IntakeTab } from './IntakeOperator';
 import { AttachmentList, UploadButtons } from '../components/Attachments';
 import { PROJECT_STATUSES, PROJECT_STATUS_LABELS, type ProjectStatus } from '../../../shared/status';
 import { formatDateTimeJa, todayIn } from '../../../shared/dates';
 
-type Tab = 'overview' | 'quote' | 'tasks' | 'delivery' | 'invoice' | 'files' | 'portal' | 'history';
+type Tab = 'overview' | 'intake' | 'quote' | 'tasks' | 'delivery' | 'invoice' | 'files' | 'portal' | 'history';
 const TABS: Array<[Tab, string]> = [
   ['overview', '概要'],
+  ['intake', 'ヒアリング'],
   ['quote', '見積・受注'],
   ['tasks', 'タスク'],
   ['delivery', '納品'],
@@ -363,6 +365,7 @@ export default function ProjectDetail({ id, onChanged, embedded }: { id: string;
           </div>
         </div>
       )}
+      {tab === 'intake' && <IntakeTab projectId={id} onChanged={refresh} />}
       {tab === 'portal' && <PortalTab projectId={id} onChanged={refresh} />}
       {tab === 'history' && <History projectId={id} events={d.events} onChanged={refresh} />}
 

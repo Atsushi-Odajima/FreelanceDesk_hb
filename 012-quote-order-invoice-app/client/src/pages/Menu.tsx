@@ -10,6 +10,7 @@ export default function MenuPage() {
     ['/payments', '入金一覧', '入金の登録・未割当入金の照合'],
     ['/payments/import', '銀行CSVの取込・照合', '銀行明細から入金を取り込む'],
     ['/items', '品目', 'よく使う作業・商品の登録'],
+    ['/intake-templates', 'ヒアリングのテンプレート', 'FreelanceDesk ヒアリングで回収する質問・ファイルの定義'],
     ['/settings?tab=business', '事業者情報', '書類に載る名称・住所・振込先・ロゴ'],
     ['/settings?tab=data', 'データ（CSV・バックアップ）', 'CSV出力・取込、全データのバックアップと復元'],
     ['/settings?tab=account', 'アカウント', 'パスワード・復旧コード・ログアウト・削除'],
