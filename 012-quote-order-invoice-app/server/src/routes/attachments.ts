@@ -75,6 +75,9 @@ export function attachmentRoutes(s: Services) {
       if (a.purpose === 'portal_version' || a.purpose === 'selection_photo') {
         throw new HttpError(409, 'クライアントポータルのファイルです。ポータルの画面から操作してください', 'portal_file');
       }
+      if (a.purpose === 'intake_file') {
+        throw new HttpError(409, 'ヒアリングの提出ファイルです。ヒアリングの画面から操作してください', 'intake_file');
+      }
       if (a.purpose === 'logo') {
         await tx.query('UPDATE business_profiles SET logo_attachment_id=NULL WHERE account_id=$1 AND logo_attachment_id=$2', [acc, id]);
         // 確定済み書類のスナップショットが参照するロゴは残す（過去書類を変えない）

@@ -48,7 +48,7 @@ export async function receiveUpload(c: Context, s: Services): Promise<ReceivedUp
 export interface InsertAttachmentInput {
   projectId: string | null;
   deliveryId: string | null;
-  purpose: 'project' | 'delivery' | 'logo' | 'portal_version' | 'selection_photo';
+  purpose: 'project' | 'delivery' | 'logo' | 'portal_version' | 'selection_photo' | 'intake_file';
   upload: ReceivedUpload;
   note?: string;
   requestId?: string | null;

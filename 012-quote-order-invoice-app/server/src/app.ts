@@ -23,6 +23,7 @@ import { dataRoutes } from './routes/data';
 import { pdfRoutes } from './routes/pdf';
 import { portalAdminRoutes } from './routes/portalAdmin';
 import { portalRoutes } from './routes/portal';
+import { intakeAdminRoutes } from './routes/intakeAdmin';
 import { isUniqueViolation } from './db';
 import { clientIp } from './services/ip';
 
@@ -80,10 +81,12 @@ export function createApp(deps: Deps) {
   const jsonLimit = bodyLimit({ maxSize: 3 * 1024 * 1024, onError: () => { throw new HttpError(413, 'データが大きすぎます', 'too_large'); } });
   const uploadLimit = bodyLimit({ maxSize: s.config.uploadMaxBytes + 256 * 1024, onError: () => { throw new HttpError(413, `ファイルが大きすぎます（上限 ${Math.floor(s.config.uploadMaxBytes / 1024 / 1024)}MB）`, 'too_large'); } });
   const PORTAL_UPLOAD = /^\/api\/projects\/[^/]+\/portal\/(deliverables\/[^/]+\/versions|selections\/[^/]+\/photos)$/;
+  // FreelanceDesk ヒアリングのファイル提出（運営者・お客様）
+  const INTAKE_UPLOAD = /^\/api\/(portal\/)?projects\/[^/]+\/intakes\/[^/]+\/items\/[^/]+\/files$/;
   app.use('/api/*', async (c, next) => {
     const p = c.req.path;
     if (p === '/api/data/restore' || p.startsWith('/api/data/import/')) return next();
-    if (p === '/api/attachments' || PORTAL_UPLOAD.test(p)) return uploadLimit(c, next);
+    if (p === '/api/attachments' || PORTAL_UPLOAD.test(p) || INTAKE_UPLOAD.test(p)) return uploadLimit(c, next);
     return jsonLimit(c, next);
   });
 
@@ -111,6 +114,7 @@ export function createApp(deps: Deps) {
   app.route('/api/customers', customerRoutes(s));
   app.route('/api/items', itemRoutes(s));
   app.route('/api/projects', portalAdminRoutes(s));
+  app.route('/api', intakeAdminRoutes(s));
   app.route('/api/projects', projectRoutes(s));
   app.route('/api/portal', portalRoutes(s));
   app.route('/api/attachments', attachmentRoutes(s));

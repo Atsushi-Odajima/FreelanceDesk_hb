@@ -31,6 +31,8 @@ import {
 } from '../services/portal';
 import { clientSelection, listSelections, savePicks, selectionDetailForClient, selectionDisplayName, submitPicks } from '../services/selection';
 import { commentSchema, sheetQuery, sheetResponse } from './portalAdmin';
+import { registerPortalIntakeRoutes } from './portalIntake';
+import { listIntakes } from '../services/intake';
 
 export function portalRoutes(s: Services) {
   const r = new Hono<AppEnv>();
@@ -102,6 +104,7 @@ export function portalRoutes(s: Services) {
       deliverables: await deliverablesWithVersions(s.pool, sess.accountId, p.id, 'client'),
       deliveries: await deliveriesFor(s.pool, sess.accountId, p.id, 'client'),
       selections: await listSelections(s.pool, sess.accountId, p.id, 'client', sess.customerId),
+      intakes: await listIntakes(s.pool, sess.accountId, p.id, 'client'),
       events: events.map((e) => ({ id: e.id, kind: e.kind, title: e.title, occurredAt: e.occurred_at })),
     });
   });
@@ -247,6 +250,9 @@ export function portalRoutes(s: Services) {
     });
     return c.json(res);
   });
+
+  // ---- FreelanceDesk ヒアリング ----
+  registerPortalIntakeRoutes(r, s);
 
   return r;
 }

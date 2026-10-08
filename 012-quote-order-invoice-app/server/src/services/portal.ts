@@ -656,6 +656,8 @@ export async function clientReadableAttachment(q: Queryable, accountId: string, 
        OR (a.purpose='delivery' AND EXISTS (SELECT 1 FROM deliveries d WHERE d.account_id=a.account_id AND d.id=a.delivery_id AND d.project_id=$2 AND d.portal_status='published'))
        OR (a.purpose='selection_photo' AND EXISTS (SELECT 1 FROM selection_photos sp JOIN selection_sets ss ON ss.id=sp.set_id
              WHERE sp.attachment_id=a.id AND ss.project_id=$2 AND ss.status IN ('open','closed')))
+       OR (a.purpose='intake_file' AND EXISTS (SELECT 1 FROM intake_files f JOIN intakes i ON i.account_id=f.account_id AND i.id=f.intake_id
+             WHERE f.account_id=a.account_id AND f.attachment_id=a.id AND i.project_id=$2 AND i.shared_at IS NOT NULL AND i.status <> 'cancelled'))
      )`,
     [accountId, projectId, attachmentId],
   );

@@ -40,6 +40,15 @@ export const BACKUP_TABLES = [
   'selection_photos',
   'selection_picks',
   'selection_responses',
+  // FreelanceDesk ヒアリング／案件開始パック（004_intake.sql）
+  'intake_templates',
+  'intakes',
+  'intake_responses',
+  'intake_item_states',
+  'intake_files',
+  'intake_candidates',
+  'intake_followups',
+  'intake_packages',
 ] as const;
 
 type Row = Record<string, any>;
