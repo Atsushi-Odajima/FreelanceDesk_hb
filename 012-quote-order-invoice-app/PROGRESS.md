@@ -1,4 +1,4 @@
-# PROGRESS — 完了／未完了／テスト（最終更新：2026-10-07）
+# PROGRESS — 完了／未完了／テスト（最終更新：2026-10-08）
 
 凡例：✅完了（自動テストで確認）／🟡実装済み・実機未確認／⬜未実施（人間の作業が必要）
 
@@ -29,7 +29,7 @@
 | 9 | ユーザー間データ分離 | ✅（ID書換えテスト） |
 | 10 | CSV/バックアップ/復元 | ✅（空環境への復元で件数・金額一致） |
 | 11 | スマホ写真添付/PDF保存共有 | 🟡 ファイル選択・HEIC受入・PDF保存をエミュレーションで確認。カメラ撮影・共有シート・iOSでの保存は実機未確認 |
-| 12 | 必須単体・結合・E2Eテスト | ✅ 単体54・結合74・E2E10 すべて成功（TEST_REPORT.md、2026-10-07 クライアントポータル統合後） |
+| 12 | 必須単体・結合・E2Eテスト | ✅ 単体69・結合87・E2E11 すべて成功（TEST_REPORT.md、2026-10-08 ヒアリング統合後） |
 | 13 | 購入者向け説明書 | ✅ 購入者向け資料/ |
 | 14 | 継続運用費用の記録 | ✅ OPERATING_COSTS.md |
 | 15 | 実機未確認事項を正直に記録 | ✅ 本表・TEST_REPORT.md・RELEASE_CHECKLIST.md |
@@ -48,3 +48,17 @@
 | バックアップへの追加（招待は除外） | ✅ | integration/portal.test.ts |
 | 画面の磨き込み・実機確認 | ⬜ | NEXT_STEPS.txt |
 | 未統合（分割アップロード/S3、メール・マジックリンク、ZIP、資料依頼、監査チェーン、通知センター） | ⬜（意図的に対象外） | DECISIONS.md M8 |
+
+## FreelanceDesk ヒアリング統合（2026-10-08, candidate 8）
+統合元：IntakeMint（hanbai23/024-intakemint、読み取りのみ）。詳細は DECISIONS.md「FreelanceDesk ヒアリングの統合」。
+| 項目 | 状態 | 根拠 |
+|---|---|---|
+| 充足判定・条件分岐・形式チェック（IntakeMint 共有コードの移植） | ✅ | unit/intake-engine.test.ts |
+| テンプレート（サンプル9種から作成・編集・検証・アーカイブ、作成済みヒアリングへの非影響） | ✅ | integration/intake.test.ts |
+| ヒアリング（問い合わせ段階から作成・公開・回答・提出・送信・承認/差し戻し・対象外・Ready・上書き・受付終了） | ✅ | integration/intake.test.ts, e2e/intake-client.spec.ts |
+| FreelanceDesk 回答チェック（ルール判定）・追加質問 | ✅ | unit + integration |
+| FreelanceDesk 案件開始パック（MD/TXT/版・提出ファイルZIP） | ✅ | integration + e2e |
+| 認可（お客様・運営者の全新規ルートで他アカウント/他案件 404）・レート制限・バックアップ | ✅ | integration/intake.test.ts |
+| 画面（案件詳細「ヒアリング」タブ、テンプレート一覧/編集、ポータルのヒアリング画面） | ✅（最小実装） | e2e/intake-client.spec.ts（テンプレート編集画面は自動テストなし） |
+| 画面の磨き込み・実機確認 | ⬜ | NEXT_STEPS.txt |
+| 未統合（リマインド・メール、外部AI、MCP、RBAC、監査ログ、全文検索、S3） | ⬜（意図的に対象外） | DECISIONS.md I9 |

@@ -1,6 +1,6 @@
 # DATA_MODEL — 主要テーブルと関連
 
-正は `server/src/migrations/001_init.sql`、`002_integrity.sql`、`003_client_portal.sql`（FreelanceDesk クライアントポータル）と（quote_versions.project_id / based_on_version_id、invoices.current_version_id、business_profiles.logo_attachment_id にも複合外部キーを追加）。すべての業務テーブルは `account_id` を持ち、`(account_id, id)` の複合外部キーで同一アカウント内の関連のみ許可。
+正は `server/src/migrations/001_init.sql`、`002_integrity.sql`、`003_client_portal.sql`（FreelanceDesk クライアントポータル）、`004_intake.sql`（FreelanceDesk ヒアリング）と（quote_versions.project_id / based_on_version_id、invoices.current_version_id、business_profiles.logo_attachment_id にも複合外部キーを追加）。すべての業務テーブルは `account_id` を持ち、`(account_id, id)` の複合外部キーで同一アカウント内の関連のみ許可。
 
 ```
 accounts ─┬─ sessions / recovery_codes / password_reset_tokens
@@ -77,3 +77,21 @@ attachments.purpose に 'portal_version' / 'selection_photo' を追加
 ```
 - すべて `account_id` を持ち、`(account_id, …)` の複合外部キーで同一アカウント内のみ関連付け可能。案件削除・アカウント削除で連鎖削除。
 - バックアップ（BACKUP_TABLES）に portal_deliverables / portal_versions / portal_comments / portal_change_requests / portal_approvals / portal_delivery_items / selection_sets / selection_photos / selection_picks / selection_responses を追加（形式バージョンは1のまま。旧バックアップも復元可）。**招待リンク・顧客セッションは含めない**（復元後に招待リンクを再発行）。
+
+## FreelanceDesk ヒアリング／案件開始パック（004_intake.sql）
+```
+intake_templates（name, description, sample_key, definition jsonb＝IntakeMint TemplateDefinition, archived_at, request_id）
+projects ──< intakes（template_id 任意, title, definition jsonb＝作成時のコピー, status draft/sent/in_progress/needs_client/needs_internal_review/ready/started/cancelled,
+ │                    due_date, shared_at＝お客様に公開, progress jsonb, missing_summary, internal_signoff_at, signoff_note, ready_at, ready_override jsonb{reason,at,unmet[]},
+ │                    client_submitted_at, started_at, request_id）
+ │    ├─< intake_responses（PK intake_id+question_id, value jsonb, version, updated_by_kind client/operator）※非表示の質問の回答も保持
+ │    ├─< intake_item_states（PK intake_id+item_id, review_status none/accepted/rejected/needs_review/not_applicable, note, reviewed_at）
+ │    ├─< intake_files（item_id, attachment_id UNIQUE → attachments(purpose='intake_file'), status pending_review/accepted/rejected, review_note, uploaded_by_kind）
+ │    ├─< intake_candidates（kind follow_up/ambiguous/contradiction/missing, question_id, fingerprint（ヒアリング内UNIQUE）, payload, status open/sent_to_client/dismissed/resolved, provider）
+ │    ├─< intake_followups（candidate_id 任意, question_id, text, options, status open/answered/resolved/cancelled, answer jsonb）
+ │    └─< intake_packages（version（ヒアリング内UNIQUE）, profile, content jsonb＝freelancedesk.intake-package/v1, markdown）
+attachments.purpose に 'intake_file' を追加
+```
+- すべて `account_id` を持ち、`(account_id, …)` の複合外部キーで同一アカウント内のみ関連付け可能。案件削除・アカウント削除で連鎖削除（ヒアリング削除時は提出ファイルの添付も削除）。テンプレートは削除せずアーカイブ（ヒアリングは定義のコピーを持つ）。
+- 導出値：進捗・不足・Ready 判定は `shared/intake/completeness.ts` で毎回計算し、intakes.progress / missing_summary / status / ready_at に反映（一覧表示用）。
+- バックアップ（BACKUP_TABLES）に intake_templates / intakes / intake_responses / intake_item_states / intake_files / intake_candidates / intake_followups / intake_packages を追加（形式バージョンは1のまま。旧バックアップも復元可）。

@@ -128,3 +128,61 @@
 - テンプレート・チェックリスト・案件カテゴリ・サンプル案件・Client Portal 独自の案件状態（preparing/client_review 等）：FreelanceDesk の既存機能・状態と重複するため。
 - 修正指示の番号入り画像の保存（Canvas描画）・顧客による承認取消・コメント編集：印刷ビュー／削除で代替（UIは後で磨く前提の最小実装）。
 - 写真セレクトの共有HTML/A4印刷レイアウト・サムネイル生成（Client Portal でも未統合）。
+
+## FreelanceDesk ヒアリングの統合（2026-10-08, candidate 8）
+統合元（読み取り専用・変更していない）：hanbai23 `024-intakemint`（IntakeMint。Fastify + PGlite/PostgreSQL + React PWA、ブランチ `claude/intakemint-024`）。
+命名規則：統合した機能は本アプリ名を冠する ―「FreelanceDesk ヒアリング」「FreelanceDesk 案件開始パック」。
+
+### I1. Case＝FreelanceDesk の案件（projects）に付くヒアリング（intakes）。問い合わせ段階から使える
+- IntakeMint の Organization / Workspace / Case / Client は作らない。ヒアリングは案件に属し（1案件に複数可）、顧客は案件の顧客（customers）。
+- 案件の状態（問い合わせ〜完了）は**自動で動かさない**（ヒアリングは見積前の情報回収でも使うため。M6 と同じ「後戻りしない・勝手に進めない」方針）。ヒアリング自身の状態は IntakeMint と同じ（draft / sent / in_progress / needs_client / needs_internal_review / ready / started、archived は使わず cancelled＝中止）。
+- テンプレート（intake_templates）はアカウント単位。IntakeMint の「公開版（template_versions、不変）」の代わりに、**ヒアリング作成時に定義をコピー**して保持する（以後のテンプレート変更は既存ヒアリングに影響しない＝IntakeMint テスト #20 と同じ保証。テストあり）。下書き/公開の2段階・版番号は持たない（アーカイブのみ）。
+
+### I2. お客様側はクライアントポータル（M2）をそのまま使う
+- 新しい認証・招待・公開URLは作らない。お客様は既存の招待リンクで入室し、`/api/portal/projects/:pid/intakes/...` で回答・提出する。全ルートで `clientProject()`（公開中・自分の案件・招待使用済み）を通し、ヒアリングは案件IDと組で照合。運営者が「お客様に公開」（shared_at）していない・中止したヒアリングは 404。
+- IntakeMint のアカウント不要の署名トークン（case_access_tokens・メール確認コード）は統合しない（ポータルの招待＋メール照合で代替）。
+- 提出ファイルのダウンロードは既存の `/api/portal/projects/:pid/files/:fid`（`clientReadableAttachment` に `intake_file` を追加：公開中ヒアリングの提出物のみ）。
+
+### I3. 充足判定・条件分岐・形式チェックは IntakeMint の共有コードを無改変で移植（shared/intake/）
+- `logic.ts`（show/hide/require/unrequire・カスケード・循環検知・下書きルール無視）、`validate.ts`、`completeness.ts`（分母＝表示中かつ必須の項目、提出率/承認率、3/5＝一部提出、提出≠承認、Ready＝全承認＋形式エラーなし＋未解決の確認事項0件＋サインオフ）、`types.ts`。変更はメッセージ文言（「AI確認候補」→「確認事項（回答チェック・追加質問）」）とコメントのみ。
+- 再評価（IntakeMint `recompute`）・Ready 後の必須情報変更でサインオフ／上書きを無効化して Ready 解除、理由付き上書き（5文字以上、未達理由を保存）、項目／ファイル単位の承認・差し戻し（理由必須、お客様に表示）・対象外（理由必須）・回答変更での再レビュー、お客様は確認前の自分の提出のみ取消、を services/intake.ts に移植。
+- 非表示になった質問の回答は保持し判定・パックから除外（retain_excluded）。
+
+### I4. ファイルは既存の attachments + attachment_blobs（bytea）
+- `attachments.purpose='intake_file'` を追加し、`intake_files` が参照。10MB/ファイル・アカウント容量上限・`detectFile`（実体判定・危険形式拒否）は既存どおり。項目の受付形式（拡張子）・最大件数・項目ごとの上限（10MB以下）と「拡張子と中身の一致」を追加で検査。
+- FreelanceDesk の許可形式に合わせ、サンプルから svg / eps / zip を除外。`ai` は PDF 互換保存のもの（中身がPDF）のみ受付。
+- 案件の「ファイル」タブには出さず、通常の添付削除APIでは消せない（409 intake_file）。
+
+### I5. 履歴（project_events）との連携
+| 操作 | 履歴 | お客様に表示（client_visible） |
+|---|---|---|
+| 作成・非公開化・サインオフ・Ready上書き・Ready解除・パック作成・削除・お客様のファイル提出・追加質問への回答 | ✅ | ✕ |
+| お客様に公開 | ✅ | ✅「ヒアリング「…」へのご回答をお願いしています」 |
+| お客様の送信 | ✅ | ✅（未提出ありの場合はその旨） |
+| 差し戻し（ファイル・項目） | ✅ | ✅（理由は履歴に入れず、ヒアリング画面にのみ表示） |
+| 追加質問の送信 | ✅ | ✅ |
+| Ready 到達 | ✅ | ✅「必要な情報がそろいました」 |
+| 開始済み・中止 | ✅ | ✅「受付を終了しました」 |
+
+### I6. AI は外部送信なしのルール判定のみ（「FreelanceDesk 回答チェック」）
+- IntakeMint の AI ゲートウェイには既定の**ローカル決定的プロバイダ（local-heuristic）**と外部プロバイダ（Anthropic API、有料・外部送信）がある。ローカル判定（曖昧な目的→追加質問候補、参考サイトの理由なし、数量の矛盾、はい/いいえと本文の矛盾、過去日付）を `shared/intake/checks.ts` に移植し、運営者の「回答をチェック」とお客様の「送信」時に実行。テキスト形式の提出ファイル本文（20件・各2万字まで）も数量照合に使う。
+- 結果は候補（intake_candidates、指紋で重複防止、回答が変われば stale 表示）。人間が「お客様に質問する（文面編集可）／社内で解決／却下」を決める。未解決の候補・追加質問は Ready を止める（completionRules.aiUnresolvedPolicy）。お客様には候補を見せない。
+- **外部AIプロバイダ（有料API）・ファイル分類・抽出（OCR）は統合しない**（費用・外部送信の承認が必要。NEXT_STEPS）。ai_calls・ai_documents・案件/組織のAI ON/OFF も不要のため作らない。
+
+### I7. FreelanceDesk 案件開始パック
+- IntakeMint `packages.ts` の生成ロジック（決定的・各エントリに出典 `[q:質問ID]` `[file:ID]`、未回答は Unknown、未承認の必須項目・未確定の追加質問は Open Questions、マッピング外の回答は Notes、テンプレートにない要件は作らない、非表示の回答は含めない、Handoff 8プロファイル、Web Development の Pages/Features 候補・Acceptance Criteria 候補）を `shared/intake/package.ts` に移植。Client/Project には FreelanceDesk の顧客名・案件名・案件番号を入れる。レビュー履歴の代わりにサインオフ・上書きの記録を Decisions に入れる。
+- 生成ごとに v1, v2…（intake_packages）。Markdown / TXT（BOM＋CRLF）ダウンロード、画面でプレビュー・コピー。Ready 前でも作成できる（未達は Open Questions に出る。IntakeMint と同じ）。
+- 提出ファイルの ZIP（差し戻し以外＋最新パックの Markdown、無圧縮、パスは IntakeMint と同じ `files/<項目ID>/<ID先頭8桁>_<名前>`）を運営者のみダウンロード可。メモリ上で生成するため上限はアカウント容量（既定500MB）まで。
+
+### I8. レート制限
+お客様の回答保存・送信・追加質問回答：1セッション 1分60回／ファイル提出・取消：1セッション 1分30回（既存 RateLimiter、プロセス内メモリ）。
+
+### I9. 統合しなかったもの（理由）
+- リマインド（未提出のみ・深夜帯回避・承認制）・メール送信（outbox/Resend）・通知センター：FreelanceDesk にメール送信基盤がない。テンプレートの reminderPolicy は互換のため保存するが使わない。期限超過のヒアリング一覧などは NEXT_STEPS。
+- 外部AI・ファイル分類/抽出・AIによる条件ルール提案：I6。
+- MCP サーバー（10ツール）：FreelanceDesk に外部APIトークンの仕組みがない。Claude Code への引き渡しは案件開始パックの Markdown コピー／ダウンロードで行う。
+- 組織・ワークスペース・RBAC（5ロール）・APIトークン：FreelanceDesk は1アカウント＝1事業者。
+- 監査ログ（audit_logs）・全文検索（pg_trgm の search_index）・DBジョブキュー：履歴は project_events、検索は既存の検索画面の対象外（NEXT_STEPS）。
+- 署名付きURL（HMAC）・ストレージドライバ（Local/S3）・マルウェアスキャナ（EICARのみ）：FreelanceDesk は認証済みAPIで bytea を配信する設計。大容量・S3 は NEXT_STEPS。
+- オフライン下書き（ポータルのPWA下書き）・PGlite デモ・保存期間パージ・サンプル組織：FreelanceDesk の既存方針（更新系はオフライン不可、サンプルは別の一時アカウント）に合わせた。
+- テンプレートのビジュアル条件分岐ビルダー：画面は質問・ファイル項目の簡易編集＋JSON編集（条件分岐・項目のまとめ・パック割り当て）の最小実装。UIは後で磨く前提。
